@@ -1,0 +1,122 @@
+# Adding a diagram or a chart
+
+For anyone writing site content. You do not need to touch any component. You add a spec to your site's figure specs, place it by key, and the build tells you if it breaks a rule.
+
+The rules behind this are in [`visual-language.md`](visual-language.md) §18 (diagrams) and §19 (charts). The reasons are in the strategy in the AnantState repository (`docs/visual-system-strategy.md`).
+
+## Which kind of figure do I need?
+
+| You want to show | Use |
+|---|---|
+| One idea, memorably, once on a page | A **signature** figure (`S-xx`). Hand-drawn; ask for a new one only if no registry entry fits (see `visual-language.md` §5) |
+| How parts connect or in what order things happen | A **diagram** |
+| Numbers compared, or a trend | A **chart** |
+| That the product exists | A product screenshot |
+
+A signature figure and a diagram must not sit in the same band of a page.
+
+## A diagram, in three steps
+
+**1. Add a spec** to `DIAGRAMS` in your site's figure specs module (AnantState: `src/lib/content/figure-specs.ts`):
+
+```ts
+"review-path": {
+  id: "review-path",                       // must equal the key
+  label: "How a change is reviewed",       // small uppercase heading
+  caption: "A change reaches production only after an independent review, and a rejected change returns to its author.",
+  nodes: [
+    { id: "author", label: "Author" },
+    { id: "review", label: "Independent review", role: "emphasis" },
+    { id: "ship", label: "Production", role: "terminal", tone: "good" },
+  ],
+  edges: [
+    { from: "author", to: "review" },
+    { from: "review", to: "ship", label: "approved", style: "emphasis" },
+    { from: "review", to: "author", label: "rejected", style: "dashed" },
+  ],
+},
+```
+
+**2. Place it** by key. In a page's content, `figure: "diagram:review-path"`; in a blog post, `<Figure name="diagram:review-path" />`.
+
+**3. Build.** `npm run build` validates the spec. `npm run test:visual` checks the rendered result.
+
+### What each part means
+
+| Field | Notes |
+|---|---|
+| `caption` | Required, 60+ characters. State the **concept**, not the picture ("a change must be reviewed", not "boxes joined by arrows"). It is written before the drawing |
+| `nodes[].role` | `step` (default), `emphasis` (the one thing the figure is about), `external` (outside our control, dashed), `terminal` (where it ends, pill). Shape carries the meaning, so it survives greyscale |
+| `nodes[].tone` | `good`, `watch`, `warn`, `bad`, `primary`, `muted`. A status, never decoration |
+| `nodes[].group` | Draws a labelled region round the members. Members must sit next to each other, or the build fails and names the node in the way |
+| `edges[].style` | `solid` flow, `dashed` optional or asynchronous, `emphasis` the one path the figure is about |
+| `direction` | `ltr` (default) or `ttb`. Use `ttb` for more than about five steps, or for a loop you want to read down the page |
+| A node with no edges | Allowed inside a group, for "what sits where" diagrams (see `topologies`). Place the nodes with `position`, and the text equivalent will say which group each is in |
+| `position` | Escape hatch: pin a node to a layer and row when auto-layout gets it wrong |
+
+### Limits, and what the build says when you hit one
+
+| Limit | Message you will see |
+|---|---|
+| 25 nodes | `a diagram has at most 25 nodes; split it` |
+| Label 48 characters, sublabel 60, edge label 24 | `a node label is at most 48 characters; it must fit its box` |
+| About five steps left to right (1400 units) | `it is N units wide, and its text would render too small to read. Use direction "ttb"…` |
+| Every node needs an edge or a group | `node "x" has no edges and is in no group` |
+| Edges and groups must point at real ids | `edge refers to unknown node "x"` |
+| A group cannot cover a non-member | `group "g" would cover node "x", which is not a member` |
+
+If a diagram needs more than 25 nodes or more than two levels of grouping, it is two diagrams.
+
+## A chart, in three steps
+
+**1. Add a spec** to `CHARTS` in the same file:
+
+```ts
+"cost-by-stage": {
+  id: "cost-by-stage",
+  label: "Where the cost goes · worked example",
+  caption: "Most of the cost sits in two stages, which is where a review should start.",
+  type: "bar",                 // "bar" (horizontal) or "line"
+  basis: "illustrative",       // REQUIRED: "illustrative" or "measured"
+  unit: "units",
+  categories: [{ label: "Intake" }, { label: "Review" }, { label: "Delivery" }],
+  series: [{ id: "cost", label: "Cost", values: [12, 48, 30] }],
+},
+```
+
+**2. Place it** as `chart:cost-by-stage`. **3. Build.**
+
+### Rules a chart must meet
+
+- **`basis` is required.** `illustrative` means a worked example; `measured` means a real measurement and then `source` is required (`source: "the platform benchmark, Ryzen 9 3900X"`). A chart that looked like a measurement but is not is a claim the claims register does not allow. Check your site's claims register before publishing any measured number.
+- **Not measured is `null`, never `0`.** It draws as absence with your `notMeasuredText`.
+- **No pie or donut, no gauge, no dual axes, no truncated bar axis, and no coverage shown as a share of a whole.**
+- Up to four series, told apart by weight or dash as well as colour.
+- Every number is also available to screen readers as a table; you do not write that.
+
+## Checking your work
+
+```bash
+npm run typecheck        # types
+npm run lint
+npm run blog:check       # if the figure is in a blog post
+npm run test:visual      # figures, tokens, contrast, motion, label fit
+```
+
+Look at it at **375 px** and at desktop width. Below `md` a diagram becomes a list (that is the accessible version, not a fallback). If the list reads badly, the diagram is probably too complicated.
+
+## When something looks wrong
+
+| Symptom | Likely cause |
+|---|---|
+| An edge runs behind a box | Multi-layer edges are routed around nodes automatically. If it still looks wrong, pin a node with `position` |
+| Boxes in the wrong order | Order follows the edges, then the order you declared. Declare them in reading order |
+| Text wraps to four lines | Shorten the label. The limit exists for this |
+| `test:visual` reports a contrast failure | A `tone` or a tint on a surface that fails in one theme. Use a different tone, not a custom colour |
+| You want an animation, a hover, or a live control | Not yet. See `visual-language.md` §20 (interactive figures are a proposal) |
+
+## Do not
+
+- Put text inside an SVG, or use a hex colour, a shadow, a gradient or a 3D effect.
+- Add a charting or diagram library for one figure. If the engines cannot draw it, raise it; the fix belongs in the engine.
+- Edit a figure's stroke weights or tints by hand. They come from the library's tokens.

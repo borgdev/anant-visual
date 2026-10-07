@@ -1,0 +1,37 @@
+{
+  "name": "@anant/visual",
+  "version": "0.1.0",
+  "description": "The Anant visual system: tokens, a diagram engine, a chart engine and the figure shell, shared by every Anant website.",
+  "type": "module",
+  "license": "UNLICENSED",
+  "private": true,
+  "sideEffects": false,
+  "files": ["src", "docs", "theme.css", "README.md", "CHANGELOG.md"],
+  "exports": {
+    ".": "./src/index.ts",
+    "./core": "./src/core/index.ts",
+    "./react": "./src/react/index.ts",
+    "./theme.css": "./theme.css",
+    "./docs/*": "./docs/*"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "check": "npm run typecheck && npm run test"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "typescript": "^5",
+    "vitest": "^3"
+  }
+}

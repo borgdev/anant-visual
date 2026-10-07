@@ -1,0 +1,54 @@
+/*
+ * @anant/visual: the theme tokens the renderers need.
+ *
+ * Import this once, after `@import "tailwindcss"`, if your site does not already
+ * define these. A site that has its own tone and motion tokens (the same names) can
+ * skip it. The renderers also use the standard shadcn-style colour tokens
+ * (`background`, `foreground`, `card`, `border`, `muted`, `muted-foreground`,
+ * `primary`), which every Anant site already defines.
+ *
+ * The tone values are tuned so tone text on its own 10% tint clears 4.5:1 in both
+ * themes (checked with axe-core). Do not lighten them. See docs/visual-language.md §9.
+ */
+
+@theme inline {
+  --color-tone-good: var(--tone-good);
+  --color-tone-good-foreground: var(--tone-good-foreground);
+  --color-tone-watch: var(--tone-watch);
+  --color-tone-watch-foreground: var(--tone-watch-foreground);
+  --color-tone-warn: var(--tone-warn);
+  --color-tone-warn-foreground: var(--tone-warn-foreground);
+  --color-tone-bad: var(--tone-bad);
+  --color-tone-bad-foreground: var(--tone-bad-foreground);
+}
+
+:root {
+  /* Motion vocabulary (docs/visual-language.md §10). Named for the concept, not the speed. */
+  --motion-trace: 900ms;
+  --motion-converge: 600ms;
+  --motion-cross: 450ms;
+  --motion-flip: 300ms;
+  --motion-resolve: 450ms;
+  --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Status: icon + text + colour, never colour alone. */
+  --tone-good: oklch(0.46 0.13 149);
+  --tone-good-foreground: oklch(0.99 0.01 149);
+  --tone-watch: oklch(0.45 0.13 75);
+  --tone-watch-foreground: oklch(0.28 0.06 75);
+  --tone-warn: oklch(0.48 0.165 41);
+  --tone-warn-foreground: oklch(0.99 0.01 41);
+  --tone-bad: oklch(0.48 0.19 27);
+  --tone-bad-foreground: oklch(0.99 0.01 27);
+}
+
+.dark {
+  --tone-good: oklch(0.7 0.16 149);
+  --tone-good-foreground: oklch(0.145 0.02 149);
+  --tone-watch: oklch(0.8 0.15 75);
+  --tone-watch-foreground: oklch(0.2 0.05 75);
+  --tone-warn: oklch(0.7 0.18 41);
+  --tone-warn-foreground: oklch(0.145 0.02 41);
+  --tone-bad: oklch(0.704 0.191 22.216);
+  --tone-bad-foreground: oklch(0.145 0.02 22);
+}
