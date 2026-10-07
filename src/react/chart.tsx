@@ -1,6 +1,6 @@
-import { cx as cn } from "./cx";
-import { FigureFrame } from "./figure-frame";
-import { STATUS_TONES } from "./styles";
+import { cx as cn } from "./cx.js";
+import { FigureFrame } from "./figure-frame.js";
+import { STATUS_TONES } from "./styles.js";
 import {
   axisMax,
   formatValue,
@@ -8,8 +8,8 @@ import {
   ticks,
   type ChartSpec,
   type ChartSpecInput,
-} from "../core/chart";
-import { SERIES, STROKE } from "../core/tokens";
+} from "../core/chart.js";
+import { SERIES, STROKE } from "../core/tokens.js";
 
 /**
  * Chart class renderer (`docs/visual-language.md` §4.2).

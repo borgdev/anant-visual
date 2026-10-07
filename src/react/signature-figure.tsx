@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { cx as cn } from "./cx";
+import { cx as cn } from "./cx.js";
 
 /**
  * The signature figure shell.

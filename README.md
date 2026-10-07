@@ -15,18 +15,17 @@ The Anant visual system, shared by every Anant website: design tokens, a **diagr
 | `@anant/visual` | Both of the above | Yes |
 | `@anant/visual/theme.css` | The tone and motion CSS tokens the renderers need | n/a |
 
-It ships TypeScript source, with no build step: the host's bundler compiles it.
+It ships compiled JavaScript (ESM) with type declarations in `dist/`, built by `npm run build` (which also runs on `npm install` from git, via `prepare`). No transpile step is needed in the host.
 
 ## Using it in a site (Next.js, Tailwind 4)
 
 1. **Install** (see "How a site gets it" below).
-2. **Transpile it.** In `next.config.ts`: `transpilePackages: ["@anant/visual"]`.
-3. **Let Tailwind see its classes.** In the global CSS, after `@import "tailwindcss"`:
+2. **Let Tailwind see its classes.** In the global CSS, after `@import "tailwindcss"`:
    ```css
-   @source "../../node_modules/@anant/visual/src";
+   @source "../../node_modules/@anant/visual/dist";
    @import "@anant/visual/theme.css";   /* skip if your site already defines the tone and motion tokens */
    ```
-4. **Use it.**
+3. **Use it.**
    ```tsx
    import { FlowDiagram, Chart } from "@anant/visual/react";
 

@@ -1,3 +1,3 @@
-export * from "./tokens";
-export * from "./diagram";
-export * from "./chart";
+export * from "./tokens.js";
+export * from "./diagram.js";
+export * from "./chart.js";

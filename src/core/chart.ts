@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { TONES } from "./diagram";
+import { TONES } from "./diagram.js";
 
 /**
  * Chart class: a spec in, scales and a text equivalent out.

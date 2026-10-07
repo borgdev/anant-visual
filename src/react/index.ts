@@ -1,6 +1,6 @@
-export { cx } from "./cx";
-export * from "./styles";
-export { FigureFrame } from "./figure-frame";
-export { SignatureFigure, type SignatureLabelZone } from "./signature-figure";
-export { FlowDiagram } from "./flow-diagram";
-export { Chart } from "./chart";
+export { cx } from "./cx.js";
+export * from "./styles.js";
+export { FigureFrame } from "./figure-frame.js";
+export { SignatureFigure, type SignatureLabelZone } from "./signature-figure.js";
+export { FlowDiagram } from "./flow-diagram.js";
+export { Chart } from "./chart.js";

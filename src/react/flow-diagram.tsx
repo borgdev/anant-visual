@@ -1,7 +1,7 @@
 import { useId } from "react";
-import { cx as cn } from "./cx";
-import { FigureFrame } from "./figure-frame";
-import { STATUS_TONES } from "./styles";
+import { cx as cn } from "./cx.js";
+import { FigureFrame } from "./figure-frame.js";
+import { STATUS_TONES } from "./styles.js";
 import {
   describeDiagram,
   layoutDiagram,
@@ -9,8 +9,8 @@ import {
   parseDiagram,
   type DiagramNode,
   type DiagramSpecInput,
-} from "../core/diagram";
-import { STROKE, SURFACE } from "../core/tokens";
+} from "../core/diagram.js";
+import { STROKE, SURFACE } from "../core/tokens.js";
 
 /**
  * Diagram class renderer (`docs/visual-language.md` §4.5).

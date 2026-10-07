@@ -1,5 +1,5 @@
-import { cx as cn } from "./cx";
-import { VISUAL_LABEL } from "./styles";
+import { cx as cn } from "./cx.js";
+import { VISUAL_LABEL } from "./styles.js";
 
 /**
  * The shared frame for functional figures, diagrams and charts: a card with an
