@@ -4,6 +4,7 @@ The Anant visual system, shared by every Anant website: design tokens, a **diagr
 
 - **Contract:** [`docs/visual-language.md`](docs/visual-language.md) is the rule book (what a figure is for, how it is drawn, labelled, made accessible and animated).
 - **Authoring:** [`docs/figure-authoring.md`](docs/figure-authoring.md) is the how-to for adding a diagram or a chart.
+- **Adopting it in AnantVerify:** [`docs/adopting-in-anantverify.md`](docs/adopting-in-anantverify.md), rehearsed on a clone of `anantverify-web`.
 - **Changes:** [`CHANGELOG.md`](CHANGELOG.md).
 
 ## What is in it
