@@ -172,6 +172,34 @@ const samples = [
     },
   },
   {
+    title: "Chart",
+    note: "kind: chart, type column; reveal, hover a category",
+    spec: {
+      kind: "chart", id: "stages", label: "Where the time goes", caption: CAPTION, type: "column", basis: "measured",
+      source: "the platform benchmark, Ryzen 9 3900X", unit: "ms", motion: ["reveal"], interactive: true, note: "Review is the slowest stage.",
+      categories: [{ label: "Intake" }, { label: "Review" }, { label: "Delivery" }, { label: "Archive" }],
+      series: [{ id: "a", label: "This quarter", values: [12, 48, 30, null] }, { id: "b", label: "Last quarter", values: [14, 40, 35, 22] }, { id: "c", label: "Target", values: [10, 30, 25, 20] }],
+    },
+  },
+  {
+    title: "Line chart",
+    note: "kind: chart, type line; the line draws on, and breaks at a missing value",
+    spec: {
+      kind: "chart", id: "latency", label: "Latency over time", caption: CAPTION, type: "line", basis: "illustrative", unit: "ms", motion: ["reveal", "trace"],
+      categories: [{ label: "Jan" }, { label: "Feb" }, { label: "Mar" }, { label: "Apr" }, { label: "May" }],
+      series: [{ id: "a", label: "Latency", values: [12, 18, null, 30, 26] }, { id: "b", label: "Target", values: [20, 20, 20, 20, 20] }],
+    },
+  },
+  {
+    title: "Orthogonal routing",
+    note: "routing: orthogonal",
+    spec: {
+      id: "ortho", label: "How a request flows", caption: CAPTION, routing: "orthogonal", motion: ["reveal", "trace", "flow"],
+      nodes: [{ id: "c", label: "Client" }, { id: "g", label: "Gateway", role: "emphasis" }, { id: "a", label: "Auth service" }, { id: "o", label: "Order service" }, { id: "d", label: "Database", shape: "cylinder" }],
+      edges: [{ from: "c", to: "g" }, { from: "g", to: "a" }, { from: "g", to: "o" }, { from: "o", to: "d" }],
+    },
+  },
+  {
     title: "Top to bottom",
     note: "reveal only",
     spec: {

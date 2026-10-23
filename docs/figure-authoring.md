@@ -89,7 +89,7 @@ npx anant-visual export spec.json --svg out.svg --png out.png --theme dark --sca
 npx anant-visual schema diagram > diagram.schema.json     # JSON Schema; try `schema` for the kinds
 ```
 
-A spec names its `kind`; a diagram has none, and a chart is `"kind": "chart"` (checked, not yet exported). Point your editor at the generated schema (`"$schema"` in the JSON) for autocomplete and inline errors, and give the same file to a tool or a language model that writes specs: it describes exactly what the build accepts.
+A spec names its `kind`; a diagram has none, and a chart is `"kind": "chart"`. Point your editor at the generated schema (`"$schema"` in the JSON) for autocomplete and inline errors, and give the same file to a tool or a language model that writes specs: it describes exactly what the build accepts.
 
 ### Limits, and what the build says when you hit one
 
@@ -128,7 +128,7 @@ Pick the kind by the question the reader is asking: *how is it organised* (tree)
   id: "cost-by-stage",
   label: "Where the cost goes · worked example",
   caption: "Most of the cost sits in two stages, which is where a review should start.",
-  type: "bar",                 // "bar" (horizontal) or "line"
+  type: "bar",                 // "bar" (horizontal rows), "column" (vertical) or "line"
   basis: "illustrative",       // REQUIRED: "illustrative" or "measured"
   unit: "units",
   categories: [{ label: "Intake" }, { label: "Review" }, { label: "Delivery" }],
@@ -137,6 +137,8 @@ Pick the kind by the question the reader is asking: *how is it organised* (tree)
 ```
 
 **2. Place it** as `chart:cost-by-stage`. **3. Build.**
+
+A chart takes `motion` (`reveal`, `trace` for a line) and `interactive` like a diagram, and exports with the rest: `figureToSvg({ kind: "chart", ...spec })`, or `npx anant-visual export chart.json --png chart.png`.
 
 ### Rules a chart must meet
 

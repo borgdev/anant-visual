@@ -21,7 +21,7 @@ describe("cli", () => {
   test("checks a diagram, another kind and a chart", async () => {
     expect((await run("check", "d.json")).out).toMatch(/^ok: diagram "d"/);
     expect((await run("check", "t.json")).out).toMatch(/^ok: tree "t"/);
-    expect((await run("check", "c.json")).out).toBe('ok: chart "c"');
+    expect((await run("check", "c.json")).out).toMatch(/^ok: chart "c"/);
   });
 
   test("a bad spec fails with the build's own message and a non-zero code", async () => {

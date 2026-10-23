@@ -14,6 +14,7 @@
 - **`routing: "orthogonal"`** for diagrams: straight runs with rounded bends between neighbouring layers.
 - **JSON Schema** (`figureJsonSchema`, `SCHEMA_KINDS`) generated from the validators for every kind, and a **CLI** (`anant-visual check | export | schema`).
 - **`profile: "technical"`** for diagrams: 80 nodes and a 3200-unit drawing in a keyboard-operable zoom and pan viewer (`PanZoom`), list kept for screen readers.
+- **Charts on the scene**: `chartToScene`. A chart's marks, axis, values, badges and legend are now one drawing from the scene renderer, so a chart exports to SVG and PNG and animates like a diagram (`kind: "chart"`, `motion`, `interactive`). New `column` type. The data table for screen readers is unchanged.
 - `npm run gallery` builds `gallery/index.html`: every sample with a theme toggle and replay.
 - Docs: visual-language §21, figure-authoring.
 - Changed: a diagram's words are SVG text, not HTML overlays; arrowheads are polygons, not markers. Appearance is intended to be unchanged.

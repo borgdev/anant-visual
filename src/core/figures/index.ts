@@ -2,6 +2,8 @@ import { sceneFromDiagram } from "../export.js";
 import type { DiagramSpecInput } from "../diagram.js";
 import { renderSvg, type RenderOptions } from "../render-svg.js";
 import type { Scene } from "../scene.js";
+import { chartToScene } from "../chart-scene.js";
+import type { ChartSpecInput } from "../chart.js";
 import { matrixToScene, type MatrixSpecInput } from "./matrix.js";
 import { networkToScene, type NetworkSpecInput } from "./network.js";
 import { sequenceToScene, type SequenceSpecInput } from "./sequence.js";
@@ -23,9 +25,10 @@ export type FigureInput =
   | TimelineSpecInput
   | MatrixSpecInput
   | SequenceSpecInput
-  | NetworkSpecInput;
+  | NetworkSpecInput
+  | (ChartSpecInput & { kind: "chart" });
 
-export const FIGURE_KINDS = ["diagram", "tree", "mindmap", "timeline", "matrix", "sequence", "network"] as const;
+export const FIGURE_KINDS = ["diagram", "tree", "mindmap", "timeline", "matrix", "sequence", "network", "chart"] as const;
 export type FigureKind = (typeof FIGURE_KINDS)[number];
 
 /** Validates a figure and lays it out into a scene, whatever its kind. */
@@ -43,6 +46,7 @@ export function sceneFromFigure(input: FigureInput): Scene {
     case "matrix": return matrixToScene(input as MatrixSpecInput);
     case "sequence": return sequenceToScene(input as SequenceSpecInput);
     case "network": return networkToScene(input as NetworkSpecInput);
+    case "chart": return chartToScene(input as ChartSpecInput);
     default:
       throw new Error(`Unknown figure kind "${kind}"; expected one of ${FIGURE_KINDS.join(", ")}`);
   }

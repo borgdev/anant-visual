@@ -88,7 +88,7 @@ describe("Chart", () => {
   const html = renderToStaticMarkup(<Chart spec={chart} />);
 
   test("states its basis and provides a data table as the one equivalent", () => {
-    expect(html).toContain("Illustrative");
+    expect(html).toMatch(/ILLUSTRATIVE<\/text>/);
     expect(html).toContain("<table");
     expect(html).toContain("Not measured");
   });

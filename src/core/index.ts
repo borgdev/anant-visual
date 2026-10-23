@@ -10,3 +10,4 @@ export * from "./shapes.js";
 export * from "./icons.js";
 export * from "./figures/index.js";
 export * from "./schema.js";
+export * from "./chart-scene.js";

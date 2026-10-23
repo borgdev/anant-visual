@@ -4,7 +4,6 @@ import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { figureJsonSchema, SCHEMA_KINDS, type SchemaKind } from "../core/schema.js";
 import { figureToSvg, sceneFromFigure, type FigureInput } from "../core/figures/index.js";
-import { chartSpecSchema } from "../core/chart.js";
 import { figureToPng } from "./png.js";
 
 const USAGE = `anant-visual: draw, check and export figures from a JSON spec
@@ -52,14 +51,7 @@ export async function main(argv: string[], io: Io = realIo): Promise<number> {
       return command ? 2 : 0;
     }
     if (!positionals[0]) throw new Error(`${command} needs a spec file`);
-    const raw = JSON.parse(io.read(positionals[0])) as { kind?: string; id?: string };
-    if (raw.kind === "chart") {
-      const { kind: _k, ...chart } = raw;
-      void _k;
-      chartSpecSchema.parse(chart);
-      io.out(`ok: chart "${raw.id}"`);
-      return 0;
-    }
+    const raw = JSON.parse(io.read(positionals[0])) as { kind?: string };
     const spec = raw as FigureInput;
     const scene = sceneFromFigure(spec);
     if (command === "check") {

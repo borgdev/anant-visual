@@ -58,8 +58,8 @@ export const LINE_OPACITY = {
  * available as text.
  */
 export const SERIES = [
-  { className: "text-primary", fillOpacity: 1, dash: undefined },
-  { className: "text-muted-foreground", fillOpacity: 0.4, dash: "10 8" },
-  { className: "text-tone-watch", fillOpacity: 0.7, dash: "3 7" },
-  { className: "text-tone-good", fillOpacity: 0.55, dash: "16 6 3 6" },
+  { className: "text-primary", ink: "primary", fillOpacity: 1, dash: undefined },
+  { className: "text-muted-foreground", ink: "muted", fillOpacity: 0.4, dash: "10 8" },
+  { className: "text-tone-watch", ink: "watch", fillOpacity: 0.7, dash: "3 7" },
+  { className: "text-tone-good", ink: "good", fillOpacity: 0.55, dash: "16 6 3 6" },
 ] as const;

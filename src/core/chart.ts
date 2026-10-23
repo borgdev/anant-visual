@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TONES } from "./diagram.js";
+import { MOTIONS } from "./scene.js";
 
 /**
  * Chart class: a spec in, scales and a text equivalent out.
@@ -22,7 +23,14 @@ export const chartSpecSchema = z
     id: z.string().min(1).regex(/^[a-z0-9][a-z0-9-]*$/),
     label: z.string().min(1),
     caption: z.string().min(60, "a caption must state the concept (60+ characters)"),
-    type: z.enum(["bar", "line"]),
+    /** Present when the spec travels with other figures; ignored otherwise. */
+    kind: z.literal("chart").optional(),
+    /** `bar` is horizontal rows, `column` is vertical bars, `line` is a line over the categories. */
+    type: z.enum(["bar", "column", "line"]),
+    /** Motion that plays once in view: `reveal` brings the marks in, `trace` draws a line on. */
+    motion: z.array(z.enum(MOTIONS)).default([]),
+    /** Hovering a category keeps it in focus and quiets the rest. */
+    interactive: z.boolean().default(false),
     /** Required: a chart is either a worked example or a measurement, never ambiguous. */
     basis: z.enum(["illustrative", "measured"]),
     /** Where a measured number came from. Required when `basis` is "measured". */
@@ -69,8 +77,8 @@ export const chartSpecSchema = z
           message: `series "${s.id}" has a value above the axis maximum (${spec.max}); the bar would be clipped and the chart would misstate it`,
         });
       }
-      if (spec.type === "bar" && s.values.some((v) => v !== null && v < 0)) {
-        ctx.addIssue({ code: "custom", message: `bar series "${s.id}" has a negative value` });
+      if ((spec.type === "bar" || spec.type === "column") && s.values.some((v) => v !== null && v < 0)) {
+        ctx.addIssue({ code: "custom", message: `${spec.type} series "${s.id}" has a negative value` });
       }
     }
   });
