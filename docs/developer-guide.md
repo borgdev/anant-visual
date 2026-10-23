@@ -35,7 +35,7 @@ The library is currently a private git dependency, not published to npm. See §1
 npm install "github:borgdev/anant-visual#v0.2.0"
 ```
 
-(The tag exists once the branch is merged and tagged. Until then install a packed tarball, §11.)
+**`v0.2.0` is not tagged yet** (GitHub has only `v0.1.0`), so this command fails until the `avant-grade` branch is merged and tagged. Until then install a commit of that branch, `#<sha>` in place of `#v0.2.0`, or a packed tarball (§11). The repository does not commit `dist/`: npm builds it on install through `prepare`, so the machine needs `git` and network access to fetch the dev dependencies for that build.
 
 **2. Tell Tailwind about the package.** In your global CSS, after `@import "tailwindcss"`:
 
