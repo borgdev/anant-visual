@@ -1,5 +1,6 @@
-import { GEOMETRY, type DiagramSpec, type Layout, type PlacedEdge, type PlacedNode } from "./diagram.js";
+import { GEOMETRY, ICON_ROOM, lineBudget, shapeOf, type DiagramSpec, type Layout, type PlacedEdge, type PlacedNode } from "./diagram.js";
 import type { Ink } from "./color.js";
+import { SHAPE_TEXT, shapeGeometry, type NodeShape } from "./shapes.js";
 import type { Primitive, Scene, SceneItem } from "./scene.js";
 import { SURFACE, STROKE } from "./tokens.js";
 
@@ -46,46 +47,72 @@ const TONE_INK: Record<string, Ink | undefined> = {
   muted: "muted",
 };
 
-function nodeItem(node: PlacedNode, neighbours: Set<string>): SceneItem {
+/** The ink and line of a node's outline, from its role and tone. */
+function nodeStyle(node: PlacedNode) {
   const tone = node.tone ? TONE_INK[node.tone] : undefined;
-  const rx = node.role === "terminal" ? node.h / 2 : 16;
-  const prims: Primitive[] = [{ t: "rect", x: node.x, y: node.y, w: node.w, h: node.h, rx, fill: { ink: "background" } }];
+  if (tone) return { fill: { ink: tone, opacity: 0.1 }, stroke: { ink: tone, opacity: 0.3 }, width: STROKE.hairline, dash: undefined, tone };
+  if (node.role === "emphasis") return { fill: { ink: "primary" as const, opacity: SURFACE.medium }, stroke: { ink: "primary" as const, opacity: 0.5 }, width: STROKE.primary, dash: undefined, tone };
+  return { fill: undefined, stroke: { ink: "border" as const }, width: STROKE.hairline, dash: node.role === "external" ? EXTERNAL_DASH : undefined, tone };
+}
 
-  // One tint-and-border rect over the plain fill, so a translucent tint never shows what is behind the box.
-  if (tone) {
-    prims.push({ t: "rect", x: node.x, y: node.y, w: node.w, h: node.h, rx, fill: { ink: tone, opacity: 0.1 }, stroke: { ink: tone, opacity: 0.3 }, strokeWidth: STROKE.hairline });
-  } else if (node.role === "emphasis") {
-    prims.push({ t: "rect", x: node.x, y: node.y, w: node.w, h: node.h, rx, fill: { ink: "primary", opacity: SURFACE.medium }, stroke: { ink: "primary", opacity: 0.5 }, strokeWidth: STROKE.primary });
-  } else {
-    prims.push({ t: "rect", x: node.x, y: node.y, w: node.w, h: node.h, rx, stroke: { ink: "border" }, strokeWidth: STROKE.hairline, dash: node.role === "external" ? EXTERNAL_DASH : undefined });
+/** The outline of a node: a rect for a box or pill, a path for any other silhouette. */
+function outlinePrims(node: PlacedNode): { prims: Primitive[]; text: { x: number; y: number; w: number; h: number } } {
+  const shape = shapeOf(node);
+  const style = nodeStyle(node);
+  const prims: Primitive[] = [];
+  if (shape === "box" || shape === "pill") {
+    const rx = shape === "pill" ? node.h / 2 : 16;
+    const rect = { t: "rect" as const, x: node.x, y: node.y, w: node.w, h: node.h, rx };
+    prims.push({ ...rect, fill: { ink: "background" } }, { ...rect, fill: style.fill, stroke: style.stroke, strokeWidth: style.width, dash: style.dash });
+    const room = node.w * SHAPE_TEXT[shape].wide;
+    return { prims, text: { x: node.x + (node.w - room) / 2, y: node.y, w: room, h: node.h } };
   }
+  const g = shapeGeometry(shape, node.x, node.y, node.w, node.h);
+  for (const d of g.behind) prims.push({ t: "shape", d, stroke: style.stroke, strokeWidth: style.width, dash: style.dash });
+  // The plain fill goes under the tint so a translucent tint never shows what is behind the node.
+  prims.push({ t: "shape", d: g.outline, fill: { ink: "background" } });
+  prims.push({ t: "shape", d: g.outline, fill: style.fill, stroke: style.stroke, strokeWidth: style.width, dash: style.dash });
+  for (const d of g.details) prims.push({ t: "shape", d, stroke: style.stroke, strokeWidth: style.width });
+  return { prims, text: g.text };
+}
 
-  const labelLines = wrap(node.label, 15);
-  const subLines = node.sublabel ? wrap(node.sublabel, 20) : [];
-  const block = labelLines.length * LABEL_LINE + (subLines.length ? 3 + subLines.length * SUB_LINE : 0);
-  const top = node.y + (node.h - block) / 2;
-  const cx = node.x + node.w / 2;
-  prims.push({ t: "text", x: cx, y: top + LABEL_LINE / 2, lines: labelLines, size: LABEL_SIZE, lineHeight: LABEL_LINE, weight: 600, anchor: "middle", fill: { ink: tone ?? "foreground" } });
+function nodeItem(node: PlacedNode, neighbours: Set<string>): SceneItem {
+  const style = nodeStyle(node);
+  const { prims, text } = outlinePrims(node);
+  const budget = lineBudget(node, node.w);
+  const labelLines = wrap(node.label, budget.label);
+  const subLines = node.sublabel ? wrap(node.sublabel, budget.sub) : [];
+  const iconRoom = node.icon ? ICON_ROOM : 0;
+  const block = iconRoom + labelLines.length * LABEL_LINE + (subLines.length ? 3 + subLines.length * SUB_LINE : 0);
+  const top = text.y + (text.h - block) / 2;
+  const cx = text.x + text.w / 2;
+  const ink = style.tone ?? "foreground";
+  if (node.icon) prims.push({ t: "icon", name: node.icon, x: cx - 11, y: top, size: 22, stroke: { ink: style.tone ?? "muted" } });
+  const labelTop = top + iconRoom;
+  prims.push({ t: "text", x: cx, y: labelTop + LABEL_LINE / 2, lines: labelLines, size: LABEL_SIZE, lineHeight: LABEL_LINE, weight: 600, anchor: "middle", fill: { ink } });
   if (subLines.length) {
-    prims.push({ t: "text", x: cx, y: top + labelLines.length * LABEL_LINE + 3 + SUB_LINE / 2, lines: subLines, size: SUB_SIZE, lineHeight: SUB_LINE, weight: 400, anchor: "middle", fill: { ink: "muted" } });
+    prims.push({ t: "text", x: cx, y: labelTop + labelLines.length * LABEL_LINE + 3 + SUB_LINE / 2, lines: subLines, size: SUB_SIZE, lineHeight: SUB_LINE, weight: 400, anchor: "middle", fill: { ink: "muted" } });
   }
   return { kind: "node", ref: node.id, seq: node.layer, touches: [node.id, ...neighbours], prims };
 }
 
-/** The last two points of a path, to point the arrowhead the way the line is going. */
-function endTangent(d: string): { end: [number, number]; dir: [number, number] } {
+/** The end of a path and the way it is heading there; with `atStart`, the start and the way it leaves. */
+function tangent(d: string, atStart = false): { end: [number, number]; dir: [number, number] } {
   const n = (d.match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number);
-  const end: [number, number] = [n[n.length - 2], n[n.length - 1]];
-  let from: [number, number] = [n[n.length - 4], n[n.length - 3]];
-  if (from[0] === end[0] && from[1] === end[1]) from = [n[n.length - 6], n[n.length - 5]];
+  const pts: [number, number][] = [];
+  for (let i = 0; i + 1 < n.length; i += 2) pts.push([n[i], n[i + 1]]);
+  const seq = atStart ? [...pts].reverse() : pts;
+  const end = seq[seq.length - 1];
+  let from = seq[seq.length - 2];
+  for (let k = 3; from[0] === end[0] && from[1] === end[1] && seq.length - k >= 0; k++) from = seq[seq.length - k];
   const dx = end[0] - from[0];
   const dy = end[1] - from[1];
   const len = Math.hypot(dx, dy) || 1;
   return { end, dir: [dx / len, dy / len] };
 }
 
-function arrowhead(d: string): [number, number][] {
-  const { end, dir } = endTangent(d);
+function arrowhead(d: string, atStart = false): [number, number][] {
+  const { end, dir } = tangent(d, atStart);
   const [ux, uy] = dir;
   const base: [number, number] = [end[0] - ux * ARROW_LENGTH, end[1] - uy * ARROW_LENGTH];
   return [end, [base[0] - uy * ARROW_HALF, base[1] + ux * ARROW_HALF], [base[0] + uy * ARROW_HALF, base[1] - ux * ARROW_HALF]];
@@ -106,7 +133,8 @@ function edgeItems(edge: PlacedEdge, index: number, fromLayer: number): SceneIte
       traceable: !dashed,
       prims: [
         { t: "path", d: edge.path, stroke: ink, strokeWidth: emphasis ? STROKE.emphasis : STROKE.primary, dash: dashed ? EDGE_DASH : undefined },
-        { t: "poly", points: arrowhead(edge.path), fill: ink },
+        ...(edge.arrow === "end" || edge.arrow === "both" ? [{ t: "poly" as const, points: arrowhead(edge.path), fill: ink }] : []),
+        ...(edge.arrow === "start" || edge.arrow === "both" ? [{ t: "poly" as const, points: arrowhead(edge.path, true), fill: ink }] : []),
         { t: "pulse", d: edge.path, r: 5.5, fill: ink },
       ],
     },
@@ -126,6 +154,30 @@ function edgeItems(edge: PlacedEdge, index: number, fromLayer: number): SceneIte
     });
   }
   return items;
+}
+
+/** A miniature of what a legend entry stands for, drawn in a box at (x, y - 11), 34 wide and 22 tall. */
+function swatch(key: string, x: number, y: number): Primitive[] {
+  const w = GEOMETRY.legendSwatch;
+  const top = y - 11;
+  const box = { t: "rect" as const, x, y: top, w, h: 22, rx: 6 };
+  const line = (strokeWidth: number, dash?: string): Primitive[] => [
+    { t: "path", d: `M${x},${y} L${x + w - 10},${y}`, stroke: { ink: "primary" }, strokeWidth, dash },
+    { t: "poly", points: [[x + w, y], [x + w - 10, y + 5], [x + w - 10, y - 5]], fill: { ink: "primary" } },
+  ];
+  if (key === "emphasis") return [{ ...box, fill: { ink: "primary", opacity: SURFACE.medium }, stroke: { ink: "primary", opacity: 0.5 }, strokeWidth: STROKE.primary }];
+  if (key === "external") return [{ ...box, stroke: { ink: "border" }, strokeWidth: STROKE.hairline, dash: "5 4" }];
+  if (key === "terminal") return [{ ...box, rx: 11, stroke: { ink: "border" }, strokeWidth: STROKE.hairline }];
+  if (key === "dashed") return line(STROKE.primary, "6 5");
+  if (key === "emphasis-edge") return line(STROKE.emphasis);
+  const tone = TONE_INK[key];
+  if (tone) return [{ ...box, fill: { ink: tone, opacity: 0.1 }, stroke: { ink: tone, opacity: 0.3 }, strokeWidth: STROKE.hairline }];
+  const g = shapeGeometry(key as Exclude<NodeShape, "box" | "pill">, x, top, w, 22);
+  return [
+    ...g.behind.map((d) => ({ t: "shape" as const, d, stroke: { ink: "muted" as const }, strokeWidth: 1.25 })),
+    { t: "shape", d: g.outline, fill: { ink: "background" }, stroke: { ink: "muted" }, strokeWidth: 1.5 },
+    ...g.details.map((d) => ({ t: "shape" as const, d, stroke: { ink: "muted" as const }, strokeWidth: 1.5 })),
+  ];
 }
 
 export function diagramToScene(spec: DiagramSpec, layout: Layout, description: string): Scene {
@@ -178,6 +230,18 @@ export function diagramToScene(spec: DiagramSpec, layout: Layout, description: s
   }
   layout.edges.forEach((edge, i) => items.push(...edgeItems(edge, i, layerOf.get(edge.from) ?? 0)));
   layout.nodes.forEach((node) => items.push(nodeItem(node, neighbours.get(node.id)!)));
+  layout.legend.forEach((entry, i) =>
+    items.push({
+      kind: "legend",
+      ref: `legend:${i}`,
+      seq: 0,
+      touches: [],
+      prims: [
+        ...swatch(entry.swatch, entry.x, entry.y),
+        { t: "text", x: entry.x + GEOMETRY.legendSwatch + 10, y: entry.y, lines: [entry.label], size: 13.5, lineHeight: 17, weight: 400, anchor: "start", fill: { ink: "muted" } },
+      ],
+    })
+  );
 
   return {
     id: spec.id,

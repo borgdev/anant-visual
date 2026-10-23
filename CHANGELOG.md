@@ -9,6 +9,7 @@
 - **Nested groups**: a group may set `parent`; a parent encloses its children, the text equivalent names the whole path (`Cloud › VPC › Subnet`), and two unrelated groups that overlap fail the build.
 - **Group-aware layout**: crossing-reduction sweeps no longer split a group around an outsider, and room is made between a group's border and its neighbours.
 - **Swimlanes**: `lanes` and `node.lane`. Rows left to right, columns top to bottom, each with a header strip; lanes grow to hold stacked nodes and their own label; a group must sit inside one lane; every node needs a lane once any exist. The text equivalent says which lane each step is in.
+- **Shapes**: `shape` (`box`, `pill`, `cylinder`, `diamond`, `hexagon`, `queue`, `document`, `cloud`, `stack`), each a silhouette that means one thing; text wraps to the room the outline leaves. **Icons**: 15 built-in strokes via `icon`. **Size**: `size` `sm`/`md`/`lg`; a layer is centred on its widest node. **Arrows**: `arrow` `end`/`start`/`both`/`none`. **Legend**: `legend` entries drawn under the figure, wrapped to the width, and read out in the accessible list. Several loop-back edges now take their own lanes.
 - `npm run gallery` builds `gallery/index.html`: every sample with a theme toggle and replay.
 - Docs: visual-language §21, figure-authoring.
 - Changed: a diagram's words are SVG text, not HTML overlays; arrowheads are polygons, not markers. Appearance is intended to be unchanged.

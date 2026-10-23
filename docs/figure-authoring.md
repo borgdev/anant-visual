@@ -47,6 +47,11 @@ A signature figure and a diagram must not sit in the same band of a page.
 |---|---|
 | `caption` | Required, 60+ characters. State the **concept**, not the picture ("a change must be reviewed", not "boxes joined by arrows"). It is written before the drawing |
 | `nodes[].role` | `step` (default), `emphasis` (the one thing the figure is about), `external` (outside our control, dashed), `terminal` (where it ends, pill). Shape carries the meaning, so it survives greyscale |
+| `nodes[].shape` | `box` (default), `pill`, `cylinder` (data store), `diamond` (decision), `hexagon` (service), `queue`, `document`, `cloud` (outside or elastic), `stack` (many of the same). One meaning each; do not pick by taste |
+| `nodes[].icon` | `user`, `users`, `database`, `server`, `cloud`, `lock`, `key`, `globe`, `gear`, `document`, `check`, `alert`, `bolt`, `mail`, `clock`, `code`. Goes above the label; never instead of it |
+| `nodes[].size` | `sm`, `md` (default), `lg`. Use `lg` for the thing the figure is about, `sm` for supporting parts |
+| `edges[].arrow` | `end` (default), `start`, `both`, `none` |
+| `legend` | Up to 8 entries, each a `swatch` (a role, shape, `dashed`, `emphasis-edge` or tone) and a `label`. Add one whenever a shape, dash or tone carries meaning a reader would have to guess |
 | `nodes[].tone` | `good`, `watch`, `warn`, `bad`, `primary`, `muted`. A status, never decoration |
 | `nodes[].group` | Draws a labelled region round the members. Members must sit next to each other, or the build fails and names the node in the way |
 | `edges[].style` | `solid` flow, `dashed` optional or asynchronous, `emphasis` the one path the figure is about |

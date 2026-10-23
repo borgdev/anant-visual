@@ -1,4 +1,5 @@
 import { INK_VAR, resolveInk, type Ink, type Theme } from "./color.js";
+import { ICONS, type IconName } from "./icons.js";
 import type { Paint, Primitive, Scene, SceneItem } from "./scene.js";
 
 /**
@@ -36,7 +37,7 @@ export const TIMING = {
   pulse: 1400,
 } as const;
 
-const KIND_ORDER = { lane: 0, region: 1, edge: 2, node: 3, "edge-label": 4 } as const;
+const KIND_ORDER = { lane: 0, region: 1, edge: 2, node: 3, "edge-label": 4, legend: 5 } as const;
 
 const n = (v: number) => String(Math.round(v * 100) / 100);
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -74,6 +75,15 @@ function primitive(ctx: Ctx, p: Primitive): string {
       // `pathLength` rescales dash lengths too, so only a solid line (which is drawn on) gets it.
       const extra = ` stroke-width="${n(p.strokeWidth)}" stroke-linecap="round"${p.dash ? ` stroke-dasharray="${p.dash}"` : ` pathLength="1"`}`;
       return `<path class="line" d="${p.d}"${ink(ctx, undefined, p.stroke, extra)}/>`;
+    }
+    case "shape": {
+      const extra = (p.stroke ? ` stroke-width="${n(p.strokeWidth ?? 1)}" stroke-linejoin="round"` : "") + (p.dash ? ` stroke-dasharray="${p.dash}"` : "");
+      return `<path d="${p.d}"${ink(ctx, p.fill, p.stroke, extra)}/>`;
+    }
+    case "icon": {
+      const k = p.size / 24;
+      const extra = ` transform="translate(${n(p.x)} ${n(p.y)}) scale(${n(k)})" stroke-width="${n(1.75)}" stroke-linecap="round" stroke-linejoin="round"`;
+      return `<path d="${ICONS[p.name as IconName] ?? ""}"${ink(ctx, undefined, p.stroke, extra)}/>`;
     }
     case "poly": {
       const pts = p.points.map(([x, y]) => `${n(x)},${n(y)}`).join(" ");
@@ -146,7 +156,7 @@ function item(ctx: Ctx, it: SceneItem, scene: Scene, flowDelay: number): string 
   const traced = it.kind === "edge" && it.traceable === true && scene.motion.includes("trace");
   const reveals = scene.motion.includes("reveal") || scene.motion.includes("trace");
   // Only what an animation will act on is marked, so a flow-only figure is never dimmed first.
-  const moves = it.kind === "edge" ? traced || reveals : reveals;
+  const moves = it.kind === "legend" ? false : it.kind === "edge" ? traced || reveals : reveals;
   const cls = [it.kind, traced ? "trace" : "", moves ? "m" : ""].filter(Boolean).join(" ");
   const touch = it.touches.length ? ` data-t="${it.touches.join(" ")}"` : "";
   const id = it.kind === "node" ? ` data-id="${it.ref}"` : "";

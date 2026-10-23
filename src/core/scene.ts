@@ -27,6 +27,10 @@ export type Primitive =
     }
   | { t: "path"; d: string; stroke: Paint; strokeWidth: number; dash?: string }
   | { t: "poly"; points: [number, number][]; fill: Paint }
+  /** A closed outline (a node's silhouette), unlike `path`, which is a line that can be drawn on. */
+  | { t: "shape"; d: string; fill?: Paint; stroke?: Paint; strokeWidth?: number; dash?: string }
+  /** A built-in icon on a 24-unit grid, drawn at `size`. */
+  | { t: "icon"; name: string; x: number; y: number; size: number; stroke: Paint }
   /** A mark that travels along a path. Invisible unless the `flow` motion is playing. */
   | { t: "pulse"; d: string; r: number; fill: Paint }
   | {
@@ -46,7 +50,7 @@ export type Primitive =
     };
 
 /** What an item is, which decides how it is animated and how it responds to the pointer. */
-export type ItemKind = "lane" | "region" | "node" | "edge" | "edge-label";
+export type ItemKind = "lane" | "region" | "node" | "edge" | "edge-label" | "legend";
 
 export type SceneItem = {
   kind: ItemKind;

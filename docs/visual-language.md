@@ -620,6 +620,8 @@ A functional diagram explains an exact architecture or process. §3 says it is n
 | `external` | Outside our control | Dashed border |
 | `terminal` | Where the flow ends | Pill |
 
+**Shapes.** A silhouette is chosen for what it means, not for variety: `cylinder` a store of data, `diamond` a decision, `hexagon` a service, `queue` a queue or stream, `document` an artefact, `cloud` something outside or elastic, `stack` many of the same, `pill` where a flow starts or ends. Shape is always paired with a label, and a figure that uses a shape for meaning carries a legend. Icons accompany labels; they never replace them.
+
 **Edge semantics:** solid is flow, dashed is optional or asynchronous, emphasis is the one path the figure is about. At most one emphasis path per diagram.
 
 **Forbidden.** Shadows, gradients, 3D, icon-only nodes (an icon may accompany a label, never replace it), text baked into an image (a diagram's words are live SVG `<text>` from the spec, §21), more than 25 nodes (split the diagram), a legend that needs more than the four roles above, and a signature asset in the same band (§8).

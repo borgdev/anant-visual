@@ -72,6 +72,28 @@ const samples = [
     },
   },
   {
+    title: "Shapes, icons and a legend",
+    note: "an architecture: cylinder, queue, diamond, hexagon, cloud, stack, document; reveal + flow",
+    spec: {
+      id: "arch", label: "How an order is served", caption: CAPTION, direction: "ttb", motion: ["reveal", "flow"],
+      nodes: [
+        { id: "user", label: "Customer", icon: "user", role: "external", shape: "cloud" },
+        { id: "api", label: "API gateway", shape: "hexagon", icon: "globe", role: "emphasis" },
+        { id: "auth", label: "Valid token?", shape: "diamond" },
+        { id: "svc", label: "Order service", shape: "stack", sublabel: "3 replicas", icon: "gear", size: "lg" },
+        { id: "q", label: "Events", shape: "queue", size: "sm" },
+        { id: "db", label: "Orders DB", shape: "cylinder", icon: "database", tone: "good" },
+        { id: "rep", label: "Daily report", shape: "document", tone: "watch" },
+      ],
+      edges: [
+        { from: "user", to: "api", arrow: "both" }, { from: "api", to: "auth" }, { from: "auth", to: "svc", label: "yes" },
+        { from: "svc", to: "q", style: "dashed" }, { from: "svc", to: "db" }, { from: "db", to: "rep", style: "emphasis" },
+        { from: "svc", to: "api", style: "dashed" }, { from: "q", to: "rep", arrow: "none" },
+      ],
+      legend: [{ swatch: "cylinder", label: "Data store" }, { swatch: "queue", label: "Queue" }, { swatch: "dashed", label: "Asynchronous" }, { swatch: "external", label: "Outside our control" }, { swatch: "good", label: "Healthy" }],
+    },
+  },
+  {
     title: "Top to bottom",
     note: "reveal only",
     spec: {

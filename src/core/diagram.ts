@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { MOTIONS } from "./scene.js";
+import { ICON_NAMES } from "./icons.js";
+import { NODE_SHAPES, SHAPE_TEXT, type NodeShape } from "./shapes.js";
 
 /**
  * Diagram class: a spec in, a laid-out graph out.
@@ -30,6 +32,24 @@ export const MAX_LANE_LABEL = 32;
 
 export const NODE_ROLES = ["step", "emphasis", "external", "terminal"] as const;
 export const EDGE_STYLES = ["solid", "dashed", "emphasis"] as const;
+export const NODE_SIZES = ["sm", "md", "lg"] as const;
+export const ARROWS = ["end", "start", "both", "none"] as const;
+/** What a legend entry can show: a role, a shape, an edge style or a tone. */
+export const LEGEND_SWATCHES = [
+  "emphasis",
+  "external",
+  "terminal",
+  ...NODE_SHAPES.filter((s) => s !== "box" && s !== "pill"),
+  "dashed",
+  "emphasis-edge",
+  "good",
+  "watch",
+  "warn",
+  "bad",
+  "primary",
+  "muted",
+] as const;
+export const MAX_LEGEND = 8;
 export const TONES = ["good", "watch", "warn", "bad", "primary", "muted"] as const;
 
 const idSchema = z.string().min(1).regex(/^[a-z0-9][a-z0-9-]*$/, "ids are lowercase slugs");
@@ -59,6 +79,12 @@ export const diagramSpecSchema = z
           /** Shape carries meaning, so it survives greyscale: see the renderer. */
           role: z.enum(NODE_ROLES).default("step"),
           tone: z.enum(TONES).optional(),
+          /** The silhouette. A `terminal` role is a `pill` unless a shape says otherwise. */
+          shape: z.enum(NODE_SHAPES).optional(),
+          /** `sm` and `lg` scale the box; text still wraps to fit it. */
+          size: z.enum(NODE_SIZES).default("md"),
+          /** A built-in icon above the label. It accompanies the words and never replaces them. */
+          icon: z.enum(ICON_NAMES).optional(),
           group: idSchema.optional(),
           /** The swimlane the node sits in. Required for every node once the spec has lanes. */
           lane: idSchema.optional(),
@@ -74,8 +100,18 @@ export const diagramSpecSchema = z
         to: idSchema,
         label: z.string().max(MAX_EDGE_LABEL, `an edge label is at most ${MAX_EDGE_LABEL} characters`).optional(),
         style: z.enum(EDGE_STYLES).default("solid"),
+        /** Where the arrowhead goes: the target (`end`, default), the source, both, or neither. */
+        arrow: z.enum(ARROWS).default("end"),
       })
     ),
+    /**
+     * A key under the figure. Shape, dash and tone carry meaning, and a reader should not have
+     * to guess it: each entry shows one swatch and says what it stands for.
+     */
+    legend: z
+      .array(z.object({ swatch: z.enum(LEGEND_SWATCHES), label: z.string().min(1).max(40) }))
+      .max(MAX_LEGEND, `a legend has at most ${MAX_LEGEND} entries`)
+      .default([]),
     /**
      * Swimlanes: bands that run with the reading direction (rows left to right, columns top
      * to bottom), one per actor, system or tier. Flow still reads along the layers; the lane
@@ -179,6 +215,12 @@ export const GEOMETRY = {
   lanePad: 22,
   /** Units one lane-label character takes, so a header is never shorter than its words. */
   laneLabelChar: 8.4,
+  /** The legend: swatch width, label width per character, space between entries, and its rows. */
+  legendSwatch: 34,
+  legendChar: 7.4,
+  legendGap: 26,
+  legendTop: 14,
+  legendRow: 32,
 } as const;
 
 export type PlacedNode = DiagramNode & { x: number; y: number; w: number; h: number; layer: number; row: number };
@@ -203,6 +245,7 @@ export type PlacedLane = {
   /** True for columns (top to bottom), whose header is across the top and reads horizontally. */
   vertical: boolean;
 };
+export type PlacedLegendItem = { swatch: (typeof LEGEND_SWATCHES)[number]; label: string; x: number; y: number };
 export type Layout = {
   width: number;
   height: number;
@@ -210,6 +253,8 @@ export type Layout = {
   edges: PlacedEdge[];
   groups: PlacedGroup[];
   lanes: PlacedLane[];
+  /** The key under the figure, with each entry positioned. Empty when the spec has no legend. */
+  legend: PlacedLegendItem[];
 };
 
 export function parseDiagram(input: DiagramSpecInput): DiagramSpec {
@@ -255,14 +300,43 @@ const SUBLABEL_CHARS_PER_LINE = 20;
 const LABEL_LINE = 22.5;
 const SUBLABEL_LINE = 18;
 const NODE_PADDING = 22;
+/** Room an icon takes above the label: its height and the gap under it. */
+export const ICON_ROOM = 28;
 
-/** One height for every node in a diagram, tall enough for the node with the most text. */
+/** How the node's `size` scales the box. */
+export const SIZE_SCALE = { sm: { w: 0.72, h: 0.8 }, md: { w: 1, h: 1 }, lg: { w: 1.32, h: 1.24 } } as const;
+
+type Sized = Pick<DiagramNode, "role" | "shape" | "size" | "icon" | "label" | "sublabel">;
+
+/** The silhouette a node is drawn as: its `shape`, else a pill for a terminal, else a box. */
+export function shapeOf(node: Pick<DiagramNode, "role" | "shape">): NodeShape {
+  return node.shape ?? (node.role === "terminal" ? "pill" : "box");
+}
+
+/** Characters that fit a line of the label and of the sublabel in a node of this width and shape. */
+export function lineBudget(node: Pick<DiagramNode, "role" | "shape">, width: number): { label: number; sub: number } {
+  const room = width * SHAPE_TEXT[shapeOf(node)].wide;
+  return {
+    label: Math.max(5, Math.floor((room / GEOMETRY.nodeW) * LABEL_CHARS_PER_LINE)),
+    sub: Math.max(7, Math.floor((room / GEOMETRY.nodeW) * SUBLABEL_CHARS_PER_LINE)),
+  };
+}
+
+/** Height a node needs for its text at its own width. */
+function heightNeeded(n: Sized): number {
+  const width = GEOMETRY.nodeW * SIZE_SCALE[n.size].w;
+  const budget = lineBudget(n, width);
+  const label = Math.ceil(n.label.length / budget.label) * LABEL_LINE;
+  const sub = n.sublabel ? Math.ceil(n.sublabel.length / budget.sub) * SUBLABEL_LINE + 3 : 0;
+  return NODE_PADDING + label + sub + (n.icon ? ICON_ROOM : 0) + SHAPE_TEXT[shapeOf(n)].spare;
+}
+
+/**
+ * One base height for the diagram, tall enough that every node, at its own size, holds its
+ * text. A `sm` or `lg` node is this height scaled, so a figure stays one visual rhythm.
+ */
 export function nodeHeight(spec: DiagramSpec): number {
-  const needed = spec.nodes.map((n) => {
-    const label = Math.ceil(n.label.length / LABEL_CHARS_PER_LINE) * LABEL_LINE;
-    const sub = n.sublabel ? Math.ceil(n.sublabel.length / SUBLABEL_CHARS_PER_LINE) * SUBLABEL_LINE + 3 : 0;
-    return NODE_PADDING + label + sub;
-  });
+  const needed = spec.nodes.map((n) => heightNeeded(n) / SIZE_SCALE[n.size].h);
   return Math.max(GEOMETRY.nodeH, Math.ceil(Math.max(...needed)));
 }
 
@@ -279,6 +353,7 @@ export function showDrawingFrom(width: number, direction: "ltr" | "ttb"): "sm" |
 export function layoutDiagram(spec: DiagramSpec): Layout {
   const { nodeW: W, layerGap, rowGap, pad } = GEOMETRY;
   const H = nodeHeight(spec);
+  const dim = new Map(spec.nodes.map((n) => [n.id, { w: Math.round(W * SIZE_SCALE[n.size].w), h: Math.round(H * SIZE_SCALE[n.size].h) }]));
   const ttb = spec.direction === "ttb";
   const back = backEdgeSet(spec);
   const forward = spec.edges.filter((_, i) => !back.has(i));
@@ -379,8 +454,10 @@ export function layoutDiagram(spec: DiagramSpec): Layout {
   });
 
   // 4. Coordinates. `along` runs with the reading direction, `across` is the other axis.
-  const across = ttb ? W : H;
-  const alongSize = ttb ? H : W;
+  const acrossOf = (id: string) => (ttb ? dim.get(id)!.w : dim.get(id)!.h);
+  const alongOf = (id: string) => (ttb ? dim.get(id)!.h : dim.get(id)!.w);
+  // A layer is as deep as its biggest node; the rest are centred on it.
+  const layerSize = layers.map((layer) => Math.max(...layer.map(alongOf)));
   const nodeLayer = new Map<string, number>();
   layers.forEach((layer, li) => layer.forEach((id) => nodeLayer.set(id, li)));
   // Each nesting level takes room at both ends of a layer, so deeper nesting widens every gap.
@@ -401,7 +478,9 @@ export function layoutDiagram(spec: DiagramSpec): Layout {
   const side = Math.max(0, maxDepth * GEOMETRY.groupPad - 24);
   const alongPad = pad + side;
   const headRoom = spec.lanes.length ? (ttb ? GEOMETRY.laneHeadTop : GEOMETRY.laneHead) + GEOMETRY.laneMargin : 0;
-  const alongStart = layers.map((_, li) => alongPad + headRoom + li * alongSize + gaps.slice(0, li).reduce((a, b) => a + b, 0));
+  const alongStart = layers.map(
+    (_, li) => alongPad + headRoom + layerSize.slice(0, li).reduce((a, b) => a + b, 0) + gaps.slice(0, li).reduce((a, b) => a + b, 0)
+  );
 
   // A group label that will wrap to two lines needs room above, so reserve it up front.
   const inGroup = (id: string, gid: string) => chains.get(id)!.includes(gid);
@@ -411,7 +490,7 @@ export function layoutDiagram(spec: DiagramSpec): Layout {
     if (!members.length) continue;
     const lo = Math.min(...members);
     const hi = Math.max(...members);
-    const span = ttb ? W : alongStart[hi] + W - alongStart[lo];
+    const span = ttb ? W : alongStart[hi] + layerSize[hi] - alongStart[lo];
     const room = span + 2 * GEOMETRY.groupPad - 28;
     labelHeight.set(g.id, g.label.length * GEOMETRY.groupLabelChar > room ? GEOMETRY.groupLabelTall : GEOMETRY.groupLabel);
   }
@@ -441,7 +520,7 @@ export function layoutDiagram(spec: DiagramSpec): Layout {
     ids.forEach((id, i) => {
       if (i > 0) cur += crossGap(ids[i - 1], id);
       pos.push(cur);
-      cur += across;
+      cur += acrossOf(id);
     });
     return { pos, extent: cur };
   };
@@ -472,10 +551,10 @@ export function layoutDiagram(spec: DiagramSpec): Layout {
         const cross = base + pos[ri];
         placed.set(id, {
           ...byId.get(id)!,
-          x: ttb ? cross : alongStart[layerIndex],
-          y: (ttb ? alongStart[layerIndex] : cross) + top,
-          w: W,
-          h: H,
+          x: ttb ? cross : alongStart[layerIndex] + (layerSize[layerIndex] - dim.get(id)!.w) / 2,
+          y: (ttb ? alongStart[layerIndex] + (layerSize[layerIndex] - dim.get(id)!.h) / 2 : cross) + top,
+          w: dim.get(id)!.w,
+          h: dim.get(id)!.h,
           layer: layerIndex,
           row: layer.indexOf(id),
         });
@@ -489,9 +568,33 @@ export function layoutDiagram(spec: DiagramSpec): Layout {
   // With lanes the drawing ends where the lanes end, which is past the lowest node.
   const bottom = hasLanes && !ttb ? crossEnd : nodesBottom;
   const hasBack = back.size > 0;
+  // Each loop-back edge gets its own lane below (or beside) the drawing, so they do not overlap.
+  const backOrder = [...back].sort((a, b) => a - b);
+  const backRoom = GEOMETRY.backEdgeRoom + 14 * Math.max(0, back.size - 1);
+  const backLane = (i: number) => 14 * backOrder.indexOf(i);
   const endPad = hasLanes ? GEOMETRY.laneMargin + 18 : alongPad;
-  const width = (hasLanes && ttb ? crossEnd + GEOMETRY.laneMargin : right + endPad) + (ttb && hasBack ? GEOMETRY.backEdgeRoom : 0);
-  const height = (hasLanes && !ttb ? crossEnd + GEOMETRY.laneMargin : nodesBottom + endPad) + (!ttb && hasBack ? GEOMETRY.backEdgeRoom : 0);
+  const baseWidth = (hasLanes && ttb ? crossEnd + GEOMETRY.laneMargin : right + endPad) + (ttb && hasBack ? backRoom : 0);
+  const baseHeight = (hasLanes && !ttb ? crossEnd + GEOMETRY.laneMargin : nodesBottom + endPad) + (!ttb && hasBack ? backRoom : 0);
+  // The legend sits under the drawing and wraps to as many rows as its width needs.
+  const legend: PlacedLegendItem[] = [];
+  let legendRows = 0;
+  if (spec.legend.length) {
+    const room = baseWidth - 2 * GEOMETRY.laneMargin - 2 * 14;
+    let cx = 0;
+    let row = 0;
+    for (const entry of spec.legend) {
+      const w = GEOMETRY.legendSwatch + 10 + entry.label.length * GEOMETRY.legendChar + GEOMETRY.legendGap;
+      if (cx > 0 && cx + w > room) {
+        cx = 0;
+        row++;
+      }
+      legend.push({ ...entry, x: GEOMETRY.laneMargin + 14 + cx, y: baseHeight + GEOMETRY.legendTop + row * GEOMETRY.legendRow });
+      cx += w;
+    }
+    legendRows = row + 1;
+  }
+  const width = baseWidth;
+  const height = baseHeight + (legendRows ? GEOMETRY.legendTop + legendRows * GEOMETRY.legendRow : 0);
   if (width > GEOMETRY.maxWidth) {
     throw new Error(
       `Invalid diagram "${spec.id}": it is ${Math.round(width)} units wide, and its text would render too small to read. ` +
@@ -512,7 +615,7 @@ export function layoutDiagram(spec: DiagramSpec): Layout {
         const bx = b.x + b.w / 2;
         const ay = a.y + a.h;
         const by = b.y + b.h;
-        const low = bottom + GEOMETRY.backEdgeRoom * 0.6;
+        const low = bottom + GEOMETRY.backEdgeRoom * 0.6 + backLane(i);
         path = `M${ax},${ay} C${ax},${low} ${bx},${low} ${bx},${by}`;
         // Cubic midpoint at t = 0.5: (P0 + 3·P1 + 3·P2 + P3) / 8.
         mid = { x: (ax + bx) / 2, y: 0.75 * low + 0.125 * (ay + by) };
@@ -521,7 +624,7 @@ export function layoutDiagram(spec: DiagramSpec): Layout {
         const by = b.y + b.h / 2;
         const ax = a.x + a.w;
         const bx = b.x + b.w;
-        const far = (hasLanes ? crossEnd : right) + GEOMETRY.backEdgeRoom * 0.6;
+        const far = (hasLanes ? crossEnd : right) + GEOMETRY.backEdgeRoom * 0.6 + backLane(i);
         path = `M${ax},${ay} C${far},${ay} ${far},${by} ${bx},${by}`;
         mid = { x: 0.75 * far + 0.125 * (ax + bx), y: (ay + by) / 2 };
       }
@@ -618,12 +721,12 @@ export function layoutDiagram(spec: DiagramSpec): Layout {
         const size = lanePadTop + contentOf[li] + lanePadBottom;
         const m = GEOMETRY.laneMargin;
         return ttb
-          ? { id: l.id, label: l.label, x: laneTop[li], y: m, w: size, h: height - 2 * m, vertical: true, head: { x: laneTop[li], y: m, w: size, h: GEOMETRY.laneHeadTop } }
+          ? { id: l.id, label: l.label, x: laneTop[li], y: m, w: size, h: baseHeight - 2 * m, vertical: true, head: { x: laneTop[li], y: m, w: size, h: GEOMETRY.laneHeadTop } }
           : { id: l.id, label: l.label, x: m, y: laneTop[li], w: width - 2 * m, h: size, vertical: false, head: { x: m, y: laneTop[li], w: GEOMETRY.laneHead, h: size } };
       })
     : [];
 
-  return { width, height, nodes, edges, groups, lanes: placedLanes };
+  return { width, height, nodes, edges, groups, lanes: placedLanes, legend };
 }
 
 /**

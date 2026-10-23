@@ -75,6 +75,12 @@ export function FlowDiagram({ spec: input }: { spec: DiagramSpecInput }) {
             ) : null}
           </li>
         ))}
+        {spec.legend.length ? (
+          <li className="rounded-xl border bg-background px-4 py-3 text-sm">
+            <span className="font-semibold">Key</span>
+            <span className="block text-muted-foreground">{spec.legend.map((l) => `${l.swatch.replace("-", " ")}: ${l.label}`).join("; ")}</span>
+          </li>
+        ) : null}
       </ol>
     </FigureFrame>
   );
