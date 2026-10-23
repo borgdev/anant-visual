@@ -2,14 +2,15 @@
 
 For anyone writing site content. You do not need to touch any component. You add a spec to your site's figure specs, place it by key, and the build tells you if it breaks a rule.
 
-The rules behind this are in [`visual-language.md`](visual-language.md) §18 (diagrams) and §19 (charts). The reasons are in the strategy in the AnantState repository (`docs/visual-system-strategy.md`).
+The rules behind this are in [`visual-language.md`](visual-language.md) §18 (diagrams and the other figure kinds), §19 (charts), §20 (interaction), §21 (export and motion) and §22 (profiles). For setting the library up in a site, see [`developer-guide.md`](developer-guide.md). The reasons are in the strategy in the AnantState repository (`docs/visual-system-strategy.md`).
 
 ## Which kind of figure do I need?
 
 | You want to show | Use |
 |---|---|
 | One idea, memorably, once on a page | A **signature** figure (`S-xx`). Hand-drawn; ask for a new one only if no registry entry fits (see `visual-language.md` §5) |
-| How parts connect or in what order things happen | A **diagram** |
+| How parts connect or in what order things happen | A **diagram** (or a **sequence** for who talks to whom, in order) |
+| How something is organised, what it is made of, when things happen, where things sit, or what links to what | A **tree**, **mind map**, **timeline**, **matrix** or **network** (see below) |
 | Numbers compared, or a trend | A **chart** |
 | That the product exists | A product screenshot |
 
@@ -167,7 +168,9 @@ Look at it at **375 px** and at desktop width. Below `md` a diagram becomes a li
 | Boxes in the wrong order | Order follows the edges, then the order you declared. Declare them in reading order |
 | Text wraps to four lines | Shorten the label. The limit exists for this |
 | `test:visual` reports a contrast failure | A `tone` or a tint on a surface that fails in one theme. Use a different tone, not a custom colour |
-| You want an animation, a hover, or a live control | Not yet. See `visual-language.md` §20 (interactive figures are a proposal) |
+| You want an animation or a hover | Set `motion` and `interactive` on the spec (see above). Step-through, drill-down and overlay layers are still a proposal, `visual-language.md` §20 |
+| The drawing is too small to read, or the build says it is too wide | Use `direction: "ttb"`, fewer steps in a row, or, for documentation, `profile: "technical"` |
+| An exported PNG has the wrong font | Pass `fontFiles` (and `fontFamily`) for the brand face; otherwise it uses system fonts |
 
 ## Do not
 

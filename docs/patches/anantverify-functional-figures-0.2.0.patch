@@ -1,0 +1,67 @@
+diff --git a/e2e/functional-figures.spec.ts b/e2e/functional-figures.spec.ts
+index fe0ed65..515196f 100644
+--- a/e2e/functional-figures.spec.ts
++++ b/e2e/functional-figures.spec.ts
+@@ -88,10 +88,12 @@ test("every diagram obeys the figure contract", async ({ page, request }) => {
+           drawingHidden: Boolean(svg?.closest("[aria-hidden='true']")),
+           hasList: Boolean(list) && list!.querySelectorAll("li").length >= 2,
+           caption: el.querySelector("figcaption")?.textContent?.length ?? 0,
+-          // Inline SVG rules: a diagram is data, not a place to author text,
+-          // colours or animation. All three break on dark mode or translation.
+-          hasText: /<text[\s>]/.test(el.innerHTML),
+-          hasStyle: /<style[\s>]/.test(el.innerHTML),
++          // Inline SVG rules (library 0.2.0): the words are live SVG <text> from the
++          // spec, and the drawing carries one scoped <style> for its motion and hover
++          // rules. What stays forbidden is anything that breaks on dark mode,
++          // translation or export: SMIL, scripts, foreignObject, baked colour.
++          hasText: /<text[\s>]/.test(svg?.outerHTML ?? ""),
++          hasForeign: /<foreignObject|<script/.test(el.innerHTML),
+           hasSmil: /<animate/.test(el.innerHTML),
+           hex: /#[0-9a-fA-F]{3,8}\b/.test(svg?.outerHTML ?? ""),
+           // A width/height pair locks the aspect ratio and stops it scaling.
+@@ -102,8 +104,8 @@ test("every diagram obeys the figure contract", async ({ page, request }) => {
+       expect(audit.drawingHidden, `${id}: the drawing is aria-hidden`).toBe(true);
+       expect(audit.hasList, `${id}: a generated text equivalent exists`).toBe(true);
+       expect(audit.caption, `${id}: a caption states the concept`).toBeGreaterThan(60);
+-      expect(audit.hasText, `${id}: no <text> in the artwork`).toBe(false);
+-      expect(audit.hasStyle, `${id}: no <style> in the artwork`).toBe(false);
++      expect(audit.hasText, `${id}: the words are SVG text`).toBe(true);
++      expect(audit.hasForeign, `${id}: no foreignObject or script in the artwork`).toBe(false);
+       expect(audit.hasSmil, `${id}: no SMIL animation`).toBe(false);
+       expect(audit.hex, `${id}: no baked colour`).toBe(false);
+       expect(audit.sized, `${id}: viewBox only, no fixed width or height`).toBeFalsy();
+@@ -132,15 +134,25 @@ for (const width of [1280, 820]) {
+ 
+       for (const id of ids) {
+         const result = await page.locator(`figure[data-diagram="${id}"]`).evaluate((el) => {
+-          const nodes = Array.from(el.querySelectorAll<HTMLElement>("div.absolute.flex"));
+-          const visible = nodes.filter((n) => n.offsetParent !== null);
+-          return {
+-            measured: visible.length,
+-            overflowing: visible
+-              .filter((n) => n.scrollWidth > n.clientWidth + 1 || n.scrollHeight > n.clientHeight + 1)
+-              .map((n) => n.textContent),
+-            smallest: Math.min(...visible.map((n) => parseFloat(getComputedStyle(n).fontSize))),
+-          };
++          // Nodes are SVG groups now: each has an outline (its first filled shape) and its words.
++          const svg = el.querySelector("svg");
++          const shown = svg && svg.getBoundingClientRect().width > 0;
++          if (!svg || !shown) return { measured: 0, overflowing: [] as (string | null)[], smallest: 99 };
++          const scale = svg.getBoundingClientRect().width / svg.viewBox.baseVal.width;
++          const nodes = Array.from(svg.querySelectorAll<SVGGElement>("g.node[data-id]"));
++          const overflowing: (string | null)[] = [];
++          let smallest = Infinity;
++          for (const g of nodes) {
++            const outline = Array.from(g.querySelectorAll<SVGGraphicsElement>("rect, path")).find((e) => getComputedStyle(e).fill !== "none");
++            if (!outline) continue;
++            const box = outline.getBBox();
++            for (const t of Array.from(g.querySelectorAll<SVGTextElement>("text"))) {
++              const b = t.getBBox();
++              smallest = Math.min(smallest, parseFloat(t.getAttribute("font-size") ?? "18") * scale);
++              if (b.x < box.x - 2 || b.x + b.width > box.x + box.width + 2 || b.y < box.y - 2 || b.y + b.height > box.y + box.height + 2) overflowing.push(t.textContent);
++            }
++          }
++          return { measured: nodes.length, overflowing, smallest };
+         });
+ 
+         // Below its breakpoint the figure shows the list instead of the drawing,

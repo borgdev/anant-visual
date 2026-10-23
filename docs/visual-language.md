@@ -2,7 +2,7 @@
 
 > **Status.** This is the one contract for every Anant website. It lives in the `@anant/visual` package, next to the code that implements it, so the two change together.
 >
-> **Provenance.** Sections 1–15 were written for `anantverify-web`. Its registry (C-01…C-12), the §4.2 pairs and the §4.4 worked example are **AnantVerify's**, and are kept here as the worked example of how a site registers its assets. **Each site keeps its own registry and its own adjacent-pair table in its own repository**, and decides which grammars apply to it: convergence and boundary are AnantDecision's and AnantVerify's product motifs, and a site for another product does not use them. Sections **§16–§20** at the end are the rules for the library's own code: tokens, the signature shell, the diagram and chart classes, and interactive figures.
+> **Provenance.** Sections 1–15 were written for `anantverify-web`. Its registry (C-01…C-12), the §4.2 pairs and the §4.4 worked example are **AnantVerify's**, and are kept here as the worked example of how a site registers its assets. **Each site keeps its own registry and its own adjacent-pair table in its own repository**, and decides which grammars apply to it: convergence and boundary are AnantDecision's and AnantVerify's product motifs, and a site for another product does not use them. Sections **§16–§23** at the end are the rules for the library's own code: tokens, the signature shell, the functional figures (diagrams, the other figure kinds and charts), the scene and export, motion and interaction, profiles, what is enforced and how to choose. If a rule in §1–§15 and one in §16–§23 differ for a functional figure, §16–§23 wins: it is the later, and it describes what the code does.
 >
 > **Changing it.** A change to this document, the tokens or an engine is a change for every site. Add a note to `CHANGELOG.md`, and bump the version.
 
@@ -403,6 +403,8 @@ Five primitives, each meaning one thing, reused everywhere. No asset invents its
 
 ### 10.3 Hard constraints
 
+*These constraints govern signature and editorial assets. Functional figures (diagrams, other figure kinds, charts) may also ask for the diagram motion and hover focus defined in §21 and §20, which keep the same spirit (triggered, once, a complete static state, reduced motion honoured) and add the permissions listed there.*
+
 - **CSS and SVG only.** No animation library. None is installed, and this does not change that.
 - **Animate `opacity`, `transform` and `stroke-dashoffset` — and nothing else.** `stroke-dashoffset` is
   permitted **only** for the registered `state-trace` primitive, which cannot be expressed with opacity or
@@ -591,9 +593,11 @@ is now a decision with evidence behind it rather than a guess.
 
 # Library rules
 
-## 16. Tokens (`@anant/visual/core`, `tokens`)
+## 16. Tokens (`@anant/visual/core`, `tokens` and `color`)
 
 Stroke weights, surface tints and series styling are numbers defined once, in the library's `tokens`. Figures read `STROKE.*` and `SURFACE.*`; they never carry a literal. `SIGNATURE_SURFACES` (in `styles`) holds the matching Tailwind class strings for HTML surfaces, and the library's tests assert the two agree.
+
+Colour in a figure is an **ink** (`primary`, `foreground`, `muted`, `background`, `card`, `border`, and the status tones `good`, `watch`, `warn`, `bad`), never a value. On a page an ink is the host's CSS variable (`var(--primary)`), so light, dark and a brand follow the site. In an export an ink is resolved to a literal in `color`: the tone values are those in `theme.css`, a test holds the two equal, and a `palette` option swaps in a brand. Chart series are the four `SERIES` styles; each also differs in fill weight or dash, so colour is never the only carrier.
 
 ## 17. Signature shell additions
 
@@ -601,102 +605,164 @@ Stroke weights, surface tints and series styling are numbers defined once, in th
 
 ## 18. Functional diagrams (the diagram class)
 
-A functional diagram explains an exact architecture or process. §3 says it is never redrawn as signature art, and that rule stands. This section is the grammar that was missing for it.
+A functional diagram explains an exact architecture or process. §3 says it is never redrawn as signature art, and that rule stands.
 
-**Authoring.** A `DiagramSpec` (`@anant/visual`, `core/diagram`), validated when the page is built. A malformed spec fails the build.
+**Authoring.** A `DiagramSpec` (`@anant/visual/core`), validated when the page is built. A malformed spec fails the build with a message that says what to change. Authoring steps are in `figure-authoring.md`; editors and tools can read the generated JSON Schema (§21).
 
-**Layout.** Computed at build time (the site is a static export), so no layout code reaches the browser. It is a small layered pass for up to 25 nodes. An edge that spans several layers and would cross an intermediate node is routed around it, above or below, whichever is shorter. A group is the bounding box of its members; if that box would cover a node that is not a member, the build fails and names the node. Text is bounded (label 48 characters, sublabel 60, edge label 24), and every node in a diagram is as tall as the node with the most text, so it fits its box. A labelled edge gets a gap its label fits in, and a group label that would wrap gets room for two lines. A diagram wider than 1400 artboard units fails the build, because its type would render below about 10px: use `direction: "ttb"` or fewer steps in a row. A node with no edges is allowed if it is in a group (a containment diagram), and the text equivalent then says which group. A node's `position` overrides auto-layout when needed. Authoring steps are in `figure-authoring.md`.
+**Layout.** Computed at build time, so no layout code reaches the browser. A layered pass: nodes are placed in layers by their edges, ordered to reduce crossings, then given coordinates.
 
-**Swimlanes.** `lanes` splits the figure into bands that run with the reading direction (rows when left to right, columns when top to bottom), each with a header strip carrying its label, which is uppercase and reads upward on a row. A lane is for who or what does a step, never for decoration; it holds nested groups but a group cannot cross a lane border. The accessible list says `Lane: …` for each step.
+- *Groups* may nest (`parent`); a parent encloses its children, and the accessible list names the whole path (Cloud › VPC › Subnet). The ordering keeps every group, at every depth, whole, and makes room where a group's border runs between neighbours. If a group's box would still cover a node that is not a member, or two unrelated groups would overlap, the build fails and names them.
+- *Lanes* split the figure into bands that run with the reading direction. See **Swimlanes** below.
+- *Edges* between neighbouring layers are `curved` (default) or `orthogonal` (straight runs, rounded bends). An edge that spans layers and would cross a node is routed around it. Each loop-back edge takes its own lane, so they never lie on one another. `arrow` puts the head at the end, the start, both or neither.
+- *Size.* A node is `sm`, `md` or `lg`; a layer is as deep as its biggest node and the rest are centred on it. Text wraps to the room the node's silhouette leaves, and every node is at least tall enough to hold its text.
+- *Limits.* Label 48 characters, sublabel 60, edge label 24, lane label 32. The `marketing` profile allows 25 nodes and a drawing up to 1400 units wide, because its type would otherwise render below about 10px: use `direction: "ttb"` or fewer steps in a row. The `technical` profile (§22) raises both.
+- A node with no edges is allowed inside a group (a containment diagram). A node's `position` overrides auto-layout when needed.
 
-**Permitted.** Boxes (HTML), group regions (a faint plane with a label), solid, dashed and emphasis edges with an arrowhead, an optional edge label, a tone on a node.
+**Swimlanes.** `lanes` splits the figure into bands that run with the reading direction (rows when left to right, columns when top to bottom), each with a header strip carrying its label, which is uppercase and reads upward on a row. A lane is for who or what does a step, never for decoration. Once any lane exists every node must be in one; a lane grows to hold nodes stacked in the same layer and to fit its own label; it holds nested groups but a group cannot cross a lane border. The accessible list says `Lane: …` for each step.
+
+**Permitted.** Nodes in the shapes below, with an optional icon and sublabel; group regions (a faint plane with a label); solid, dashed and emphasis edges, with an arrowhead where `arrow` says; an optional edge label; a tone on a node; a legend.
 
 **Node roles carry meaning by shape, so they survive greyscale:**
 
-| Role | Reads as | Shape |
+| Role | Reads as | Drawn as |
 |---|---|---|
 | `step` | An ordinary stage | Rounded box |
 | `emphasis` | The one node the figure is about | Heavier border, medium tint |
 | `external` | Outside our control | Dashed border |
 | `terminal` | Where the flow ends | Pill |
 
-**Shapes.** A silhouette is chosen for what it means, not for variety: `cylinder` a store of data, `diamond` a decision, `hexagon` a service, `queue` a queue or stream, `document` an artefact, `cloud` something outside or elastic, `stack` many of the same, `pill` where a flow starts or ends. Shape is always paired with a label, and a figure that uses a shape for meaning carries a legend. Icons accompany labels; they never replace them.
+**Shapes.** A silhouette is chosen for what it means, not for variety: `cylinder` a store of data, `diamond` a decision, `hexagon` a service, `queue` a queue or stream, `document` an artefact, `cloud` something outside or elastic, `stack` many of the same, `pill` where a flow starts or ends, `box` anything else. Shape is always paired with a label, and a figure that uses a shape for meaning carries a legend. A role and a shape combine (an `external` cylinder is a dashed cylinder).
 
-**Edge semantics:** solid is flow, dashed is optional or asynchronous, emphasis is the one path the figure is about. At most one emphasis path per diagram.
+**Icons.** Sixteen built-in strokes (`user`, `users`, `database`, `server`, `cloud`, `lock`, `key`, `globe`, `gear`, `document`, `check`, `alert`, `bolt`, `mail`, `clock`, `code`). An icon sits above the label and takes the node's ink. It accompanies a label and never replaces it.
 
-**Forbidden.** Shadows, gradients, 3D, icon-only nodes (an icon may accompany a label, never replace it), text baked into an image (a diagram's words are live SVG `<text>` from the spec, §21), more than 25 nodes (split the diagram), a legend that needs more than the four roles above, and a signature asset in the same band (§8).
+**Legend.** Up to eight entries, each one swatch (a role, a shape, `dashed`, `emphasis-edge` or a tone) and a label the author writes, because only the author knows what the dash means. It sits under the figure, wraps to the width, is never animated, and is read out in the accessible list as a final "Key" item.
 
-**Accessibility.** The drawing is `aria-hidden`. The ordered list generated from the same layout is the one accessible equivalent: each node, then what it leads to. It is visible until the drawing can render its type at 10px or more: below `md` for a diagram up to 1130 units wide, below `lg` for a wider one, and below `sm` for top-to-bottom diagrams. It is screen-reader-only above that. The concept still reaches a screen reader exactly once (§4.3).
+**Edge semantics:** solid is flow, dashed is optional or asynchronous, emphasis is the one path the figure is about. At most one emphasis path per diagram on a marketing page.
 
-**Responsive.** Below the breakpoint the list replaces the drawing. A diagram is not scaled down until its text is unreadable; type is 18 artboard units and scales with the diagram.
+**Forbidden.** Shadows, gradients, 3D; icon-only nodes; text baked into an image (a diagram's words are live SVG `<text>` from the spec, §21); on a `marketing` figure, more than 25 nodes (split the diagram, or use `technical` for documentation); a shape or dash that carries meaning with no legend; a signature asset in the same band (§8).
+
+**Accessibility.** The drawing is `aria-hidden`. The ordered list generated from the same layout is the one accessible equivalent: each step in reading order, its lane and group path, what it leads to, and the key. It is visible until the drawing can render its type at 10px or more: below `md` for a diagram up to 1130 units wide, below `lg` for a wider one, and below `sm` for top-to-bottom diagrams, and it is screen-reader-only above that. A `technical` figure is always drawn and its list is always screen-reader-only. The concept still reaches a screen reader exactly once (§4.3).
+
+**Responsive.** Below the breakpoint the list replaces the drawing. A marketing diagram is not scaled down until its text is unreadable; type is 18 artboard units and scales with the diagram.
+
+### 18.1 Other figure kinds
+
+Six more kinds of communication figure are drawn from the same scene. Each names its `kind`; each is validated at build, has a caption and a text equivalent, and takes `motion` and `interactive` like a diagram.
+
+| `kind` | Answers | Layout | Limits |
+|---|---|---|---|
+| `tree` | How is it organised? | Parents centred over children; root on top (`ttb`) or at the left (`ltr`) | 40 nodes, 5 levels; about 8 siblings across, more with `ltr` |
+| `mindmap` | What is it made of? | The centre in the middle, branches shared between both sides by their size | 40 nodes; about 3 levels beyond the centre |
+| `timeline` | When? | Events in order along an axis, cards alternating either side; phases as bars | 8 events across, 14 down |
+| `matrix` | Which first? | A two-by-two; items placed at 0 to 1, labels moved apart when they collide | 16 items |
+| `sequence` | What happens, in what order, between whom? | Participants as columns with lifelines, one row per message, numbered | 6 participants, 24 messages |
+| `network` | What is connected to what? | A seeded force layout, grown from each cluster's own sector, then spread until nothing touches | 40 nodes; every node must have a link |
+
+Rules these add to the diagram's:
+
+- **A figure that implies a measure says what it is not.** A timeline's spacing is by order and its list ends "Events are shown in order, not to scale"; a matrix's list ends "Positions show relative standing, not measured values". The same rule that makes a chart state `basis`.
+- **A layout is reproducible.** A network uses a seeded simulation with a fixed number of steps; nothing reads `Math.random` or the clock, so a figure never changes between builds.
+- **The accessible equivalent is built from the figure's own structure**, in its reading order: a hierarchy by level, a sequence by step, a matrix by what each item is high or low on, a network by what each node joins.
+- **Colour is not the meaning.** A mind map's branches take turns being coloured so neighbours differ, and every branch is named in words; a matrix tone and a timeline tone are status, never decoration.
 
 ## 19. Charts (the chart class)
 
-**Authoring.** A `ChartSpec` (`@anant/visual`, `core/chart`), validated at build.
+**Authoring.** A `ChartSpec` (`@anant/visual/core`), validated at build, with `kind: "chart"` when it travels with other figures.
 
 **Rules enforced by the spec:**
-- `basis` is required: `illustrative` (a worked example) or `measured`. A measured chart must name its `source`. A figure that looked like measured output would be a claim the claims register does not allow.
-- A `null` value means not measured. It is drawn as absence, with the `notMeasuredText`, never as zero and never as a short bar.
+- `basis` is required: `illustrative` (a worked example) or `measured`. A measured chart must name its `source`. A figure that looked like measured output would be a claim the claims register does not allow. The drawing itself carries a chip saying which.
+- A `null` value means not measured. It is drawn as absence, with the `notMeasuredText`, never as zero and never as a short bar; a line breaks at it.
 - A caption of at least 60 characters.
+- No negative bars or columns; no value above a fixed axis maximum (the bar would be clipped and misstate it).
 
-**Permitted.** Horizontal bars (grouped, up to four series) and lines. Axis labels, values and badges are HTML; marks are SVG.
+**Permitted.** Horizontal bars (`bar`), vertical bars (`column`), and lines (`line`), grouped, up to four series. The marks, axis, values, badges, legend, basis chip and note are all part of one drawing from the scene renderer, so a chart exports to SVG and PNG and animates (`reveal`, and `trace` for a line) like any other figure.
 
-**Forbidden.** Pie and donut, gauges, 3D, dual axes, truncated axes on bars, and **any rendering of coverage as a proportion of a whole** (the Coverage grammar already forbids it).
+**Forbidden.** Pie and donut, gauges, 3D, dual axes, truncated axes on bars, stacked bars that make a part look like a share of a whole, and **any rendering of coverage as a proportion of a whole** (the Coverage grammar already forbids it).
 
 **Series are not told apart by colour alone:** each series has a fill weight (bars) or dash pattern (lines), and every value is in the data table.
 
-**Accessibility.** Marks are `aria-hidden`. A screen-reader-only data table with a caption stating unit and basis is the one accessible equivalent. The table sits in a clipping wrapper: `sr-only` on a `<table>` itself does not clip, and its intrinsic width scrolls the page sideways.
+**Accessibility.** The drawing is `aria-hidden`. A screen-reader-only data table with a caption stating unit and basis is the one accessible equivalent. The table sits in a clipping wrapper: `sr-only` on a `<table>` itself does not clip, and its intrinsic width scrolls the page sideways.
 
-## 20. Interactive figures (proposed, not yet in force)
+## 20. Interaction
 
-**Status: needs a decision.** Nothing here is implemented, and the interactive what-if is blocked on the product team's browser build (the product team's what-if brief).
+Interaction is a reading aid. It never carries anything the static figure and its accessible list do not, and the page is complete without it. Two kinds are in force; the rest of the proposal stays a proposal.
 
-Proposal for the contract when it is unblocked:
-- An interactive figure is a client island, lazy-loaded, never the LCP element, and inert until in view.
-- **Relaxed from §10.3:** user-driven motion (hover, focus, drag, step) is allowed, because it is the reader's action and not the page's.
-- **Unchanged from §10.3:** no autoplay loop, no scroll-position-driven animation, one named primitive per asset, and a complete static state under `prefers-reduced-motion`.
-- The static diagram or chart is always rendered first and enhanced, so the page is complete without JavaScript.
-- Keyboard-operable, labelled controls, and results announced politely.
+**In force**
 
-## 21. The scene, export and diagram motion
+- **Hover focus** (`interactive: true`). Hovering a node keeps it, its neighbours and their edges in focus, and quiets everything else by opacity only. It applies only to a fine pointer that can hover, and not to a reader who has asked for reduced motion. A chart's category and a network's node work the same way.
+- **Zoom and pan** (`profile: "technical"`, the `PanZoom` viewer). A drawing too big to read at the page's width is zoomed and panned instead of shrunk. Panning is the browser's own scrolling (scrollbars, touch, arrow keys, and a mouse drag); zoom is by buttons, `+`/`-`/`0` when the viewer is focused, and pinch or Ctrl/Cmd + wheel. The controls are real buttons with names, outside the drawing, which stays hidden from assistive technology.
 
-**One drawing, many outputs.** A diagram is laid out into a *scene*: positioned primitives (rect, path, polygon, text, pulse) whose colours are inks (`primary`, `muted`, `good`…), not values. One renderer turns a scene into SVG, so the figure on a page, an exported file, a PNG and a slide are the same drawing. Nothing is drawn by hand-written HTML any more.
+**Relaxed from §10.3, for these two only:** user-driven movement (hover, focus, drag, zoom) is allowed, because it is the reader's action and not the page's. **Unchanged:** no autoplay loop, no scroll-position-driven animation, and a complete static state under `prefers-reduced-motion`.
 
-- **On a page** (`mode: "inline"`): colours are `var(--token)`, so light, dark and brand follow the host. The drawing is `aria-hidden` and the generated list is the accessible equivalent (§4.3), unchanged.
-- **As a file** (`diagramToSvg`): literal colours (the tone values are the ones in `theme.css`, and a test holds them equal), a `<title>` and `<desc>`, no external dependency. Pass `theme: "dark"`, a `palette` for a brand, `background: "none"` for transparency.
-- **As a PNG** (`@anant/visual/node`, `diagramToPng`): Node only, via the optional `@resvg/resvg-js` peer. A PNG is a still, so motion is dropped. Give it the brand `fontFiles`, or it uses system fonts.
+**Still a proposal.** Step-through (reveal a flow one step at a time under the reader's control), drill-down (collapse and expand groups), and overlay layers (toggle "security" or "failure path" on one base diagram). Each needs the same three things before it is accepted: keyboard operation with labelled controls, results announced politely, and the static figure rendered first. The interactive what-if is blocked on the product team's browser build.
+
+## 21. The scene, export and motion
+
+**One drawing, many outputs.** Every figure kind is laid out into a *scene*: positioned primitives (rect, path, shape, polygon, icon, text, pulse) whose colours are inks (§16). One renderer turns a scene into SVG, so the figure on a page, an exported file, a PNG and a slide are the same drawing. Nothing is drawn by hand-written HTML.
+
+- **On a page** (`mode: "inline"`): colours are `var(--token)`, so light, dark and brand follow the host; the drawing is `aria-hidden` and the generated list is the accessible equivalent (§4.3).
+- **As a file** (`figureToSvg`, or `diagramToSvg`): literal colours, a `<title>` and `<desc>` carrying the caption and the reading order, no external dependency. Pass `theme: "dark"`, a `palette` for a brand, `background: "none"` for transparency, `loop: true` to let a flow pulse repeat in a deck.
+- **As a PNG** (`@anant/visual/node`, `figureToPng`): Node only, via the optional `@resvg/resvg-js` peer. A PNG is a still, so motion is dropped. Give it the brand `fontFiles`, or it uses system fonts.
+- **From a terminal** (`anant-visual check | export | schema`): validates with the build's own messages, exports SVG and PNG, and prints the JSON Schema for any kind.
+- **JSON Schema** (`figureJsonSchema`) is generated from the same definitions that validate, so an editor, a no-code tool and a language model see exactly what the build accepts.
 - **Arrowheads are polygons, not SVG markers**, because markers are the first thing a slide tool or Figma loses.
 
 **Text** is SVG `<text>` generated from the spec. It is selectable and searchable, and it is not an image. The earlier rule against text in the SVG existed to stop baked-in, untranslatable labels, which this is not. Wrapping is decided at layout time from the same character budget the box was sized with.
 
-### Diagram motion
+### Motion
 
-A spec may set `motion` and `interactive`. Both are off by default, so no existing figure changes.
+A spec may set `motion` and `interactive`. Both are off by default, so no figure changes until its author asks.
 
 | Name | Meaning | Technique |
 |---|---|---|
-| `reveal` | The parts exist in this order | Opacity and a small rise, nodes in reading order |
-| `trace` | The flow passes along this path | Solid edges draw on (`stroke-dashoffset`); dashed edges fade in |
+| `reveal` | The parts exist in this order | Opacity and a small rise, in reading order |
+| `trace` | The flow passes along this path | Solid edges and chart lines draw on (`stroke-dashoffset`); dashed ones fade in |
 | `flow` | Something travels along the edge | A pulse on `offset-path`; two passes on a page, endless only in an exported file (`loop`) |
-| focus (`interactive`) | These are connected | Hovering a node quiets everything that is not it, its neighbours or their edges |
 
 Rules, which extend §10 and do not relax it:
 
 - **The static drawing is complete without any of it.** The server markup shows everything. Only after hydration, and only for a reader who has not asked for reduced motion, does `MotionHost` dim the animated parts and release them once, when 40% of the figure is in view. No script, or `prefers-reduced-motion: reduce`, means nothing is ever hidden.
 - **Triggered, once.** No scroll-linked motion and no autoplay on load on a page. A file export plays on load because it has no page to scroll.
-- **Order is meaning.** Items animate in the reading order the text equivalent uses, never for effect.
-- `stroke-dashoffset` is now permitted for `trace` on a diagram edge, as it is for `state-trace`. `stroke-dasharray` on a dashed edge is never animated or rescaled.
-- Focus quiets by opacity only, for fine pointers that can hover; it is a reading aid and carries nothing the list does not.
+- **Order is meaning.** Items animate in the reading order the text equivalent uses (a sequence's messages in message order), never for effect.
+- `stroke-dashoffset` is permitted for `trace` on an edge or a chart line, as it is for `state-trace`. `stroke-dasharray` on a dashed edge is never animated or rescaled.
+- Only opacity, transform, `stroke-dashoffset` and `offset-distance` are animated. Nothing that shifts layout.
 - The one-motion-per-asset and three-animated-figures-per-page limits (§10.3) hold on marketing pages.
 
-### Profiles
+## 22. Profiles
 
-A figure has a `profile`. **`marketing`** (the default) is everything above: a figure read at a glance, with the caps that keep its type legible. **`technical`** is for documentation, where a reader studies the figure: up to 80 nodes and a drawing three times as wide, always drawn (never swapped for the list) inside a viewer that zooms and pans, with the list kept as the accessible equivalent. The viewer's controls are real, named buttons outside the hidden drawing, and the region scrolls from the keyboard. A technical figure does not go in a marketing band (§8), and the motion limits apply to it as much as to any figure.
+A figure has a `profile`. **`marketing`** (the default) is a figure read at a glance, with the caps that keep its type legible: 25 nodes, a drawing up to 1400 units wide, replaced by the list on a phone. **`technical`** is for documentation, where a reader studies the figure: up to 80 nodes and a drawing up to 3200 units wide, always drawn (never swapped for the list) inside a viewer that zooms and pans (§20), with the list kept as the accessible equivalent. A technical figure does not go in a marketing band (§8), and the motion limits apply to it as much as to any figure.
 
-### Figure kinds
+## 23. What is enforced, and how to choose
 
-Beyond the diagram, the library draws six more kinds of communication figure from the same scene (`tree`, `mindmap`, `timeline`, `matrix`, `sequence`, `network`). They share the diagram's contract and add three rules of their own:
+### 23.1 Choosing a figure
 
-- **A figure that implies a measure says what it is not.** A timeline's spacing is by order and the accessible list ends "Events are shown in order, not to scale"; a matrix's list ends "Positions show relative standing, not measured values". The same rule that makes a chart state `basis`.
-- **A layout is reproducible.** A network uses a seeded simulation with a fixed number of steps; nothing reads `Math.random` or the clock, so a figure never changes between builds.
-- **The accessible equivalent is built from the figure's own structure**, in its reading order: a hierarchy by level, a sequence by step, a matrix by what each item is high or low on, a network by what each node joins.
+| The reader's question | Use |
+|---|---|
+| One idea, memorably, once on a page | A signature figure (§5) |
+| What is the flow, the process or the architecture? | A diagram |
+| How is it organised? | A `tree` |
+| What is it made of? | A `mindmap` |
+| When? | A `timeline` |
+| Which first, or where does each sit? | A `matrix` |
+| What happens, in what order, between whom? | A `sequence` |
+| What is connected to what, with no order? | A `network` |
+| How much, or how has it changed? | A `chart` |
+| That the product exists | A product screenshot |
+
+If two kinds seem to fit, take the one whose accessible list reads most naturally; that is usually the one whose structure matches the idea.
+
+### 23.2 What the library's own tests enforce
+
+| Rule | Enforced by |
+|---|---|
+| A spec that breaks a rule (caption, limits, unknown ids, group or lane misuse, a chart without `basis`) fails the build with a message that says what to change | `tests/engines.test.ts`, `groups`, `lanes`, `shapes`, `figures`, `chart-scene`, `profile` |
+| Layout invariants: nothing overlaps, every node inside its lane, a parent encloses its children, nodes inside the canvas | the same unit tests |
+| A figure is deterministic: the same spec gives the same bytes, and a network never changes between builds | `tests/figures.test.tsx`, `golden.test.ts` |
+| Every sample figure, as an SVG, is pinned; a visual change appears as a diff of a picture | `tests/golden.test.ts` and `tests/__golden__/` |
+| The export's tone colours equal `theme.css`; no export carries a CSS variable for an ink | `tests/scene.test.ts`, `chart-scene.test.tsx` |
+| The page is complete before motion is armed, and nothing is hidden under reduced motion | unit tests and the browser tests |
+| In a real browser: the page hydrates without errors; every word fits its node; motion plays once in view and the pulse travels; reduced motion shows the whole figure and nothing moves; hover focus quiets the rest and restores; the viewer zooms by button and key and scrolls; controls are named; no horizontal scroll at 375px; the drawing follows the theme; axe finds no WCAG 2 A/AA or best-practice violations in light or dark | `e2e/browser.test.ts`, run in Chrome, Firefox and WebKit (`npm run test:browser:all`) against a Next 16 and Tailwind 4 app that installs the packed library |
+
+### 23.3 What is not verified
+
+Said plainly, so a site does not assume it: the drawing has not been read with a screen reader, only checked by axe and by the structure of the list; Safari on iOS and Android browsers are not in the browser matrix (desktop WebKit stands in for Safari); contrast is checked on the sample figures and by the tone tokens, not on every host theme, so a site with its own `--primary` and `--muted-foreground` should run its own contrast check; PNG text uses system or supplied fonts, so brand type in an export needs `fontFiles`; and nothing here has yet been deployed to a production site.
