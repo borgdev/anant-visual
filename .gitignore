@@ -4,3 +4,5 @@ node_modules
 *.tgz
 *.tsbuildinfo
 gallery/
+e2e/next-app/.next
+e2e/next-app/node_modules

@@ -40,21 +40,25 @@
     "test": "vitest run",
     "check": "npm run typecheck && npm run test && npm run build",
     "prepare": "npm run build",
-    "gallery": "npm run build && node scripts/gallery.mjs"
+    "gallery": "npm run build && node scripts/gallery.mjs",
+    "test:browser": "vitest run --config vitest.browser.config.ts",
+    "test:browser:all": "BROWSER=chrome npm run test:browser && BROWSER=firefox npm run test:browser && BROWSER=webkit npm run test:browser"
   },
   "dependencies": {
     "zod": "^4.6.5"
   },
   "peerDependencies": {
+    "@resvg/resvg-js": "^2.6.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "@resvg/resvg-js": "^2.6.0"
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@resvg/resvg-js": "^2.6.2",
     "@types/node": "^26.6.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "axe-core": "^4.14.0",
+    "playwright-core": "^1.64.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "typescript": "^5",
