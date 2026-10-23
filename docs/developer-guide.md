@@ -1,6 +1,6 @@
 # Developer guide: using `@anant/visual` in a site
 
-For an engineer adding the library to an Anant website, or writing the figures on one. It is the "how", with the numbers and the traps. The rules about what a figure is for and how it must look are in [`visual-language.md`](visual-language.md); the step-by-step for writing one spec is in [`figure-authoring.md`](figure-authoring.md); the AnantVerify-specific migration is in [`adopting-in-anantverify.md`](adopting-in-anantverify.md).
+For an engineer adding the library to an Anant website, or writing the figures on one. It is the "how", with the numbers and the traps. The rules about what a figure is for and how it must look are in [`visual-language.md`](visual-language.md); the step-by-step for writing one spec is in [`figure-authoring.md`](figure-authoring.md); the worked example of a site adopting and upgrading it (AnantVerify) is in [`adopting-anant-visual.md`](adopting-anant-visual.md).
 
 **In ten lines.** You write a plain-data *spec* (JSON-shaped, validated by zod). The library lays it out into a *scene* (positioned shapes and text), and one renderer draws that scene as an inline SVG on the page, as a standalone SVG file, or as a PNG. Eight kinds of figure share this: `diagram`, `tree`, `mindmap`, `timeline`, `matrix`, `sequence`, `network`, `chart`. A bad spec fails the build. Motion and hover are opt-in and always an enhancement of a figure that is already complete.
 

@@ -2,7 +2,7 @@
 
 ## 0.2.0 (branch `avant-grade`, not yet tagged)
 
-**Breaking for a site's tests, not for its pages.** `FlowDiagram` and `Chart` are now one SVG with live `<text>` and one scoped `<style>`, where 0.1.0 drew HTML boxes over an SVG. A test that asserts the old markup (no `<text>`, no `<style>`, a `div.absolute.flex` box) fails. `docs/patches/anantverify-functional-figures-0.2.0.patch` updates AnantVerify's `functional-figures.spec.ts`; the same three changes apply to any site's copy. `SignatureFigure`, the tokens and `theme.css` are unchanged.
+**Breaking for a site's tests, not for its pages.** `FlowDiagram` and `Chart` are now one SVG with live `<text>` and one scoped `<style>`, where 0.1.0 drew HTML boxes over an SVG. A test that asserts the old markup (no `<text>`, no `<style>`, a `div.absolute.flex` box) fails. `docs/patches/functional-figures-0.2.0.patch` updates AnantVerify's `functional-figures.spec.ts`; the same three changes apply to any site's copy. `SignatureFigure`, the tokens and `theme.css` are unchanged.
 
 - `core`: **scene model** (`scene`, `diagram-scene`): a laid-out diagram as positioned primitives with inks instead of colours. **SVG renderer** (`render-svg`): pure, deterministic, inline or standalone. **Export**: `sceneFromDiagram`, `diagramToSvg`. **Colour**: oklch to hex, a default palette, tone values held equal to `theme.css` by a test.
 - `node`: new entry `@anant/visual/node` with `diagramToPng` and `svgToPng` (optional peer `@resvg/resvg-js`).
@@ -19,7 +19,7 @@
 - **Charts on the scene**: `chartToScene`. A chart's marks, axis, values, badges and legend are now one drawing from the scene renderer, so a chart exports to SVG and PNG and animates like a diagram (`kind: "chart"`, `motion`, `interactive`). New `column` type. The data table for screen readers is unchanged.
 - `npm run gallery` builds `gallery/index.html`: every sample with a theme toggle and replay.
 - **Tests in real browsers** (`npm run test:browser`, `test:browser:all`): a Next 16 + Tailwind 4 app installs the packed library and Playwright drives it in Chrome, Firefox and WebKit. Golden SVGs pin every sample figure (`tests/__golden__`).
-- Docs: `visual-language.md` §16–§23 rewritten to describe what the code does; new `developer-guide.md`; `adopting-in-anantverify.md` updated for 0.2.0; `figure-authoring.md`.
+- Docs: `visual-language.md` §16–§23 rewritten to describe what the code does; new `developer-guide.md`; `adopting-anant-visual.md` updated for 0.2.0; `figure-authoring.md`.
 - Changed: a diagram's words are SVG text, not HTML overlays; arrowheads are polygons, not markers. Appearance is intended to be unchanged.
 
 ## 0.1.0

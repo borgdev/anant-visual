@@ -1,4 +1,4 @@
-# Adopting `@anant/visual` in anantverify-web
+# Adopting `@anant/visual` in a site: the AnantVerify worked example
 
 A guide for the AnantVerify engineering team.
 
@@ -42,12 +42,12 @@ The drawing reads your site's colour variables directly (`var(--primary)`, `--fo
 
 ```bash
 npm install "github:borgdev/anant-visual#v0.2.0"
-git apply node_modules/@anant/visual/docs/patches/anantverify-functional-figures-0.2.0.patch
+git apply node_modules/@anant/visual/docs/patches/functional-figures-0.2.0.patch
 npm run build
 npx playwright test          # the whole suite
 ```
 
-The patch (`docs/patches/anantverify-functional-figures-0.2.0.patch`, 67 lines, made against the `functional-figures.spec.ts` at your `HEAD`) changes three things in that one file:
+The patch (`docs/patches/functional-figures-0.2.0.patch`, 67 lines, made against the `functional-figures.spec.ts` at your `HEAD`) changes three things in that one file:
 
 | Old assertion | New assertion | Why |
 |---|---|---|
