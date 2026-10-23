@@ -620,7 +620,7 @@ A functional diagram explains an exact architecture or process. §3 says it is n
 
 **Edge semantics:** solid is flow, dashed is optional or asynchronous, emphasis is the one path the figure is about. At most one emphasis path per diagram.
 
-**Forbidden.** Shadows, gradients, 3D, icon-only nodes (an icon may accompany a label, never replace it), text inside the SVG, more than 25 nodes (split the diagram), a legend that needs more than the four roles above, and a signature asset in the same band (§8).
+**Forbidden.** Shadows, gradients, 3D, icon-only nodes (an icon may accompany a label, never replace it), text baked into an image (a diagram's words are live SVG `<text>` from the spec, §21), more than 25 nodes (split the diagram), a legend that needs more than the four roles above, and a signature asset in the same band (§8).
 
 **Accessibility.** The drawing is `aria-hidden`. The ordered list generated from the same layout is the one accessible equivalent: each node, then what it leads to. It is visible until the drawing can render its type at 10px or more: below `md` for a diagram up to 1130 units wide, below `lg` for a wider one, and below `sm` for top-to-bottom diagrams. It is screen-reader-only above that. The concept still reaches a screen reader exactly once (§4.3).
 
@@ -654,3 +654,33 @@ Proposal for the contract when it is unblocked:
 - The static diagram or chart is always rendered first and enhanced, so the page is complete without JavaScript.
 - Keyboard-operable, labelled controls, and results announced politely.
 
+## 21. The scene, export and diagram motion
+
+**One drawing, many outputs.** A diagram is laid out into a *scene*: positioned primitives (rect, path, polygon, text, pulse) whose colours are inks (`primary`, `muted`, `good`…), not values. One renderer turns a scene into SVG, so the figure on a page, an exported file, a PNG and a slide are the same drawing. Nothing is drawn by hand-written HTML any more.
+
+- **On a page** (`mode: "inline"`): colours are `var(--token)`, so light, dark and brand follow the host. The drawing is `aria-hidden` and the generated list is the accessible equivalent (§4.3), unchanged.
+- **As a file** (`diagramToSvg`): literal colours (the tone values are the ones in `theme.css`, and a test holds them equal), a `<title>` and `<desc>`, no external dependency. Pass `theme: "dark"`, a `palette` for a brand, `background: "none"` for transparency.
+- **As a PNG** (`@anant/visual/node`, `diagramToPng`): Node only, via the optional `@resvg/resvg-js` peer. A PNG is a still, so motion is dropped. Give it the brand `fontFiles`, or it uses system fonts.
+- **Arrowheads are polygons, not SVG markers**, because markers are the first thing a slide tool or Figma loses.
+
+**Text** is SVG `<text>` generated from the spec. It is selectable and searchable, and it is not an image. The earlier rule against text in the SVG existed to stop baked-in, untranslatable labels, which this is not. Wrapping is decided at layout time from the same character budget the box was sized with.
+
+### Diagram motion
+
+A spec may set `motion` and `interactive`. Both are off by default, so no existing figure changes.
+
+| Name | Meaning | Technique |
+|---|---|---|
+| `reveal` | The parts exist in this order | Opacity and a small rise, nodes in reading order |
+| `trace` | The flow passes along this path | Solid edges draw on (`stroke-dashoffset`); dashed edges fade in |
+| `flow` | Something travels along the edge | A pulse on `offset-path`; two passes on a page, endless only in an exported file (`loop`) |
+| focus (`interactive`) | These are connected | Hovering a node quiets everything that is not it, its neighbours or their edges |
+
+Rules, which extend §10 and do not relax it:
+
+- **The static drawing is complete without any of it.** The server markup shows everything. Only after hydration, and only for a reader who has not asked for reduced motion, does `MotionHost` dim the animated parts and release them once, when 40% of the figure is in view. No script, or `prefers-reduced-motion: reduce`, means nothing is ever hidden.
+- **Triggered, once.** No scroll-linked motion and no autoplay on load on a page. A file export plays on load because it has no page to scroll.
+- **Order is meaning.** Items animate in the reading order the text equivalent uses, never for effect.
+- `stroke-dashoffset` is now permitted for `trace` on a diagram edge, as it is for `state-trace`. `stroke-dasharray` on a dashed edge is never animated or rescaled.
+- Focus quiets by opacity only, for fine pointers that can hover; it is a reading aid and carries nothing the list does not.
+- The one-motion-per-asset and three-animated-figures-per-page limits (§10.3) still hold on marketing pages. A `technical` profile that relaxes them is planned, not yet in force.

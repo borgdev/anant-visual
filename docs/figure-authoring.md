@@ -54,6 +54,25 @@ A signature figure and a diagram must not sit in the same band of a page.
 | A node with no edges | Allowed inside a group, for "what sits where" diagrams (see `topologies`). Place the nodes with `position`, and the text equivalent will say which group each is in |
 | `position` | Escape hatch: pin a node to a layer and row when auto-layout gets it wrong |
 
+### Motion, focus and export
+
+| Field | Notes |
+|---|---|
+| `motion` | Any of `"reveal"`, `"trace"`, `"flow"`. Plays once, in view, for readers who accept motion. The static figure is complete without it. Off by default |
+| `interactive` | `true` lets a reader hover a node to see what it connects to. Off by default |
+
+To use a diagram outside the site:
+
+```ts
+import { diagramToSvg } from "@anant/visual/core";
+import { diagramToPng } from "@anant/visual/node";   // Node only; npm i @resvg/resvg-js
+
+const svg = diagramToSvg(spec, { theme: "light" });                 // a file, with motion if the spec has it
+const png = await diagramToPng(spec, { scale: 2, fontFiles: [...] }); // a still
+```
+
+See `visual-language.md` §21 for the rules.
+
 ### Limits, and what the build says when you hit one
 
 | Limit | Message you will see |

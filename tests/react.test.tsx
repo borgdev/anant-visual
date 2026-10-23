@@ -39,25 +39,44 @@ describe("FlowDiagram", () => {
     expect(html).toContain("Leads to: Second");
   });
 
-  test("keeps the artwork inline-safe: no <text>, <style>, SMIL, hex colour or fixed size", () => {
+  test("keeps the artwork inline-safe: no SMIL, hex colour, fixed size, script or foreignObject", () => {
     const svg = /<svg[\s\S]*?<\/svg>/.exec(html)![0];
-    expect(svg).not.toMatch(/<text[\s>]/);
-    expect(svg).not.toMatch(/<style[\s>]/);
     expect(svg).not.toMatch(/<animate/);
+    expect(svg).not.toMatch(/<script|<foreignObject/);
     expect(svg).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
     expect(svg).not.toMatch(/<svg[^>]*\s(width|height)=/);
+    expect(svg).toContain("var(--primary)");
   });
 
-  test("gives each diagram on a page its own arrow marker id", () => {
+  test("draws its words as SVG text, so they can be selected and searched", () => {
+    const svg = /<svg[\s\S]*?<\/svg>/.exec(html)![0];
+    expect(svg).toMatch(/<text[^>]*>First<\/text>/);
+    expect(svg).toMatch(/<text[^>]*>With a sublabel<\/text>/);
+  });
+
+  test("gives each diagram on a page its own scope, so CSS and motion never cross", () => {
     const two = renderToStaticMarkup(
       <>
         <FlowDiagram spec={diagram} />
         <FlowDiagram spec={{ ...diagram, id: "demo-2" }} />
       </>
     );
-    const ids = [...two.matchAll(/<marker id="([^"]+)"/g)].map((m) => m[1]);
-    expect(ids).toHaveLength(2);
-    expect(new Set(ids).size).toBe(2);
+    const scopes = [...two.matchAll(/<svg[^>]* class="(av-[^"]+)"/g)].map((m) => m[1]);
+    expect(scopes).toHaveLength(2);
+    expect(new Set(scopes).size).toBe(2);
+  });
+
+  test("a figure with no motion is not wrapped in the client host", () => {
+    expect(html).not.toMatch(/<svg[^>]*data-(armed|motion)/);
+    expect(html).not.toContain("@keyframes");
+  });
+
+  test("a figure that asks for motion ships the complete static drawing, unarmed", () => {
+    const moving = renderToStaticMarkup(<FlowDiagram spec={{ ...diagram, motion: ["reveal", "trace", "flow"] }} />);
+    expect(moving).toContain('data-motion="reveal trace flow"');
+    expect(moving).not.toMatch(/<svg[^>]*data-armed/);
+    expect(moving).not.toMatch(/<svg[^>]*data-play/);
+    expect(moving).toContain("prefers-reduced-motion:no-preference");
   });
 
   test("refuses an invalid spec rather than rendering it", () => {

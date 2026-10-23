@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased (branch `avant-grade`)
+
+- `core`: **scene model** (`scene`, `diagram-scene`): a laid-out diagram as positioned primitives with inks instead of colours. **SVG renderer** (`render-svg`): pure, deterministic, inline or standalone. **Export**: `sceneFromDiagram`, `diagramToSvg`. **Colour**: oklch to hex, a default palette, tone values held equal to `theme.css` by a test.
+- `node`: new entry `@anant/visual/node` with `diagramToPng` and `svgToPng` (optional peer `@resvg/resvg-js`).
+- `react`: `FlowDiagram` now draws through the scene renderer, so the page and an export are the same drawing. New `MotionHost` arms and plays motion once in view.
+- Spec: `motion` (`reveal`, `trace`, `flow`) and `interactive` focus, both off by default.
+- Docs: visual-language §21, figure-authoring.
+- Changed: a diagram's words are SVG text, not HTML overlays; arrowheads are polygons, not markers. Appearance is intended to be unchanged.
+
 ## 0.1.0
 
 First extraction, from `anant-state-website`.

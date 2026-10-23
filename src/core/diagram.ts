@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MOTIONS } from "./scene.js";
 
 /**
  * Diagram class: a spec in, a laid-out graph out.
@@ -40,6 +41,14 @@ export const diagramSpecSchema = z
     /** Required, and long enough to carry the concept (matches the signature rule). */
     caption: z.string().min(60, "a caption must state the concept (60+ characters)"),
     direction: z.enum(["ltr", "ttb"]).default("ltr"),
+    /**
+     * Motion that plays once when the figure first scrolls into view, for readers who accept
+     * motion: `reveal` brings the nodes in reading order, `trace` draws the solid edges on,
+     * `flow` sends a pulse along each edge afterwards. The static drawing is complete without it.
+     */
+    motion: z.array(z.enum(MOTIONS)).default([]),
+    /** Hovering a node keeps it, its neighbours and their edges in focus and quiets the rest. */
+    interactive: z.boolean().default(false),
     nodes: z
       .array(
         z.object({
