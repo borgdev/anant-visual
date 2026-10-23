@@ -70,6 +70,12 @@ export const diagramSpecSchema = z
     motion: z.array(z.enum(MOTIONS)).default([]),
     /** Hovering a node keeps it, its neighbours and their edges in focus and quiets the rest. */
     interactive: z.boolean().default(false),
+    /**
+     * How edges run between neighbouring layers: `curved` (default) in smooth curves, or
+     * `orthogonal` in straight runs with rounded right-angle bends, the look of an
+     * architecture or circuit diagram. An edge that skips layers or loops back is unchanged.
+     */
+    routing: z.enum(["curved", "orthogonal"]).default("curved"),
     nodes: z
       .array(
         z.object({
@@ -639,6 +645,18 @@ export function layoutDiagram(spec: DiagramSpec): Layout {
       const f = (p: { x: number; y: number }) => `${p.x},${p.y}`;
       path = `M${f(P(a0, c0))} C${f(P(a0 + da, c0))} ${f(P(a1 - da, c1))} ${f(P(a1, c1))}`;
       mid = P((a0 + a1) / 2, (c0 + c1) / 2);
+      // Between neighbouring layers an orthogonal edge runs straight, bends twice and runs straight again.
+      if (spec.routing === "orthogonal" && b.layer - a.layer === 1 && c0 !== c1) {
+        const m = (a0 + a1) / 2;
+        const sa = Math.sign(a1 - a0) || 1;
+        const sc = Math.sign(c1 - c0);
+        const r = Math.min(12, Math.abs(c1 - c0) / 2, Math.abs(a1 - a0) / 2);
+        path =
+          `M${f(P(a0, c0))} L${f(P(m - r * sa, c0))} Q${f(P(m, c0))} ${f(P(m, c0 + r * sc))} ` +
+          `L${f(P(m, c1 - r * sc))} Q${f(P(m, c1))} ${f(P(m + r * sa, c1))} L${f(P(a1, c1))}`;
+      } else if (spec.routing === "orthogonal" && b.layer - a.layer === 1) {
+        path = `M${f(P(a0, c0))} L${f(P(a1, c1))}`;
+      }
 
       const between = nodes.filter((n) => n.layer > a.layer && n.layer < b.layer);
       if (between.length) {

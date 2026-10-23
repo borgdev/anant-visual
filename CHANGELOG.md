@@ -11,6 +11,8 @@
 - **Swimlanes**: `lanes` and `node.lane`. Rows left to right, columns top to bottom, each with a header strip; lanes grow to hold stacked nodes and their own label; a group must sit inside one lane; every node needs a lane once any exist. The text equivalent says which lane each step is in.
 - **Shapes**: `shape` (`box`, `pill`, `cylinder`, `diamond`, `hexagon`, `queue`, `document`, `cloud`, `stack`), each a silhouette that means one thing; text wraps to the room the outline leaves. **Icons**: 15 built-in strokes via `icon`. **Size**: `size` `sm`/`md`/`lg`; a layer is centred on its widest node. **Arrows**: `arrow` `end`/`start`/`both`/`none`. **Legend**: `legend` entries drawn under the figure, wrapped to the width, and read out in the accessible list. Several loop-back edges now take their own lanes.
 - **Six more figure kinds** (`kind`): `tree`, `mindmap`, `timeline`, `matrix`, `sequence`, `network`, each validated, laid out into the same scene and so exported, animated and made accessible the same way. `sceneFromFigure`, `figureToSvg`, `figureToPng`, and a React `Figure` that dispatches on `kind`.
+- **`routing: "orthogonal"`** for diagrams: straight runs with rounded bends between neighbouring layers.
+- **JSON Schema** (`figureJsonSchema`, `SCHEMA_KINDS`) generated from the validators for every kind, and a **CLI** (`anant-visual check | export | schema`).
 - `npm run gallery` builds `gallery/index.html`: every sample with a theme toggle and replay.
 - Docs: visual-language §21, figure-authoring.
 - Changed: a diagram's words are SVG text, not HTML overlays; arrowheads are polygons, not markers. Appearance is intended to be unchanged.

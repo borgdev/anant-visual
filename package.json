@@ -66,5 +66,8 @@
     "@resvg/resvg-js": {
       "optional": true
     }
+  },
+  "bin": {
+    "anant-visual": "./dist/node/cli.js"
   }
 }

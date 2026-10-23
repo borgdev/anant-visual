@@ -56,6 +56,7 @@ A signature figure and a diagram must not sit in the same band of a page.
 | `nodes[].group` | Draws a labelled region round the members. Members must sit next to each other, or the build fails and names the node in the way |
 | `edges[].style` | `solid` flow, `dashed` optional or asynchronous, `emphasis` the one path the figure is about |
 | `lanes`, `nodes[].lane` | Swimlanes: one band per actor, system or tier, drawn in the order listed. Once any lane exists every node needs one. Flow still reads along the layers; the lane says who does the step. A group sits inside a single lane |
+| `routing` | `curved` (default) or `orthogonal`: straight runs with rounded right-angle bends, for architecture and circuit-style figures |
 | `direction` | `ltr` (default) or `ttb`. Use `ttb` for more than about five steps, or for a loop you want to read down the page |
 | A node with no edges | Allowed inside a group, for "what sits where" diagrams (see `topologies`). Place the nodes with `position`, and the text equivalent will say which group each is in |
 | `position` | Escape hatch: pin a node to a layer and row when auto-layout gets it wrong |
@@ -78,6 +79,16 @@ const png = await diagramToPng(spec, { scale: 2, fontFiles: [...] }); // a still
 ```
 
 See `visual-language.md` §21 for the rules.
+
+### From the command line, and in your editor
+
+```bash
+npx anant-visual check  spec.json                          # validate with the build's own messages
+npx anant-visual export spec.json --svg out.svg --png out.png --theme dark --scale 2
+npx anant-visual schema diagram > diagram.schema.json     # JSON Schema; try `schema` for the kinds
+```
+
+A spec names its `kind`; a diagram has none, and a chart is `"kind": "chart"` (checked, not yet exported). Point your editor at the generated schema (`"$schema"` in the JSON) for autocomplete and inline errors, and give the same file to a tool or a language model that writes specs: it describes exactly what the build accepts.
 
 ### Limits, and what the build says when you hit one
 

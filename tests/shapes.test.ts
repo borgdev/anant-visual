@@ -175,3 +175,34 @@ describe("legend", () => {
     expect(() => parseDiagram({ ...spec, legend: Array.from({ length: 9 }, () => ({ swatch: "dashed", label: "x" })) })).toThrow(/at most 8/);
   });
 });
+
+describe("orthogonal routing", () => {
+  const spec = (routing?: string): DiagramSpecInput =>
+    ({
+      id: "o",
+      label: "O",
+      caption: CAPTION,
+      ...(routing ? { routing } : {}),
+      nodes: [{ id: "a", label: "A" }, { id: "b", label: "B" }, { id: "c", label: "C" }],
+      edges: [{ from: "a", to: "b" }, { from: "a", to: "c" }],
+    }) as DiagramSpecInput;
+
+  test("runs in straight lines with rounded bends between neighbouring layers", () => {
+    const edges = layoutDiagram(parseDiagram(spec("orthogonal"))).edges;
+    for (const e of edges) expect(e.path).not.toMatch(/ C/);
+    expect(edges.some((e) => /Q/.test(e.path))).toBe(true);
+  });
+
+  test("the default is unchanged", () => {
+    for (const e of layoutDiagram(parseDiagram(spec())).edges) expect(e.path).toMatch(/ C/);
+  });
+
+  test("an arrowhead still meets the target square on", () => {
+    const [e] = layoutDiagram(parseDiagram(spec("orthogonal"))).edges;
+    const l = layoutDiagram(parseDiagram(spec("orthogonal")));
+    const target = l.nodes.find((n) => n.id === "b")!;
+    const tip = /<polygon class="head" points="([\d.]+),([\d.]+)/.exec(diagramToSvg(spec("orthogonal")))!;
+    expect(Number(tip[1])).toBeCloseTo(target.x, 0);
+    expect(e.path.endsWith(`${target.x},${target.y + target.h / 2}`)).toBe(true);
+  });
+});

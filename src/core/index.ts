@@ -9,3 +9,4 @@ export * from "./export.js";
 export * from "./shapes.js";
 export * from "./icons.js";
 export * from "./figures/index.js";
+export * from "./schema.js";
