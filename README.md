@@ -11,10 +11,21 @@ The Anant visual system, shared by every Anant website: design tokens, a **diagr
 
 | Entry point | Contents | Needs React |
 |---|---|---|
-| `@anant/visual/core` | `tokens` (tints, strokes, series), `diagram` (spec, validation, build-time layout, text equivalent), `chart` (spec, validation, scales) | No |
-| `@anant/visual/react` | `FlowDiagram`, `Chart`, `FigureFrame`, `SignatureFigure`, and the shared class strings (`STATUS_TONES`, `SIGNATURE_SURFACES`, `MOTION`…) | Yes |
-| `@anant/visual` | Both of the above | Yes |
+| `@anant/visual/core` | `tokens`; the figure kinds (`diagram`, `tree`, `mindmap`, `timeline`, `matrix`, `sequence`, `network`, `chart`) with validation and build-time layout; the **scene** and its **SVG renderer**; `figureToSvg`; JSON Schema | No |
+| `@anant/visual/react` | `Figure` (any kind), `FlowDiagram`, `Chart`, `PanZoom`, `MotionHost`, `FigureFrame`, `SignatureFigure`, and the shared class strings | Yes |
+| `@anant/visual/node` | `figureToPng`, `svgToPng`, and the `anant-visual` command line (optional peer `@resvg/resvg-js`) | No |
+| `@anant/visual` | `core` and `react` | Yes |
 | `@anant/visual/theme.css` | The tone and motion CSS tokens the renderers need | n/a |
+
+## One drawing, everywhere
+
+Every figure is laid out into a **scene** and drawn by one renderer, so the figure on a page, an SVG file, a PNG and a slide are the same drawing. Figures animate (`motion`: `reveal`, `trace`, `flow`) and respond to hover (`interactive`), always as enhancements: the markup is the complete static figure, and a reader who asks for reduced motion sees it as is.
+
+```bash
+npx anant-visual export spec.json --svg out.svg --png out.png --theme dark
+npx anant-visual schema diagram          # JSON Schema, for editors and tools that write specs
+npm run gallery                          # gallery/index.html: every sample, with replay and a theme toggle
+```
 
 It ships compiled JavaScript (ESM) with type declarations in `dist/`, built by `npm run build` (which also runs on `npm install` from git, via `prepare`). No transpile step is needed in the host.
 
