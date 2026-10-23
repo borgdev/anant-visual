@@ -687,7 +687,11 @@ Rules, which extend §10 and do not relax it:
 - **Order is meaning.** Items animate in the reading order the text equivalent uses, never for effect.
 - `stroke-dashoffset` is now permitted for `trace` on a diagram edge, as it is for `state-trace`. `stroke-dasharray` on a dashed edge is never animated or rescaled.
 - Focus quiets by opacity only, for fine pointers that can hover; it is a reading aid and carries nothing the list does not.
-- The one-motion-per-asset and three-animated-figures-per-page limits (§10.3) still hold on marketing pages. A `technical` profile that relaxes them is planned, not yet in force.
+- The one-motion-per-asset and three-animated-figures-per-page limits (§10.3) hold on marketing pages.
+
+### Profiles
+
+A figure has a `profile`. **`marketing`** (the default) is everything above: a figure read at a glance, with the caps that keep its type legible. **`technical`** is for documentation, where a reader studies the figure: up to 80 nodes and a drawing three times as wide, always drawn (never swapped for the list) inside a viewer that zooms and pans, with the list kept as the accessible equivalent. The viewer's controls are real, named buttons outside the hidden drawing, and the region scrolls from the keyboard. A technical figure does not go in a marketing band (§8), and the motion limits apply to it as much as to any figure.
 
 ### Figure kinds
 

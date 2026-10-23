@@ -5,3 +5,4 @@ export { SignatureFigure, type SignatureLabelZone } from "./signature-figure.js"
 export { FlowDiagram } from "./flow-diagram.js";
 export { Chart } from "./chart.js";
 export { Figure } from "./figure.js";
+export { PanZoom } from "./pan-zoom.js";

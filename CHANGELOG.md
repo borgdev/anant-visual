@@ -13,6 +13,7 @@
 - **Six more figure kinds** (`kind`): `tree`, `mindmap`, `timeline`, `matrix`, `sequence`, `network`, each validated, laid out into the same scene and so exported, animated and made accessible the same way. `sceneFromFigure`, `figureToSvg`, `figureToPng`, and a React `Figure` that dispatches on `kind`.
 - **`routing: "orthogonal"`** for diagrams: straight runs with rounded bends between neighbouring layers.
 - **JSON Schema** (`figureJsonSchema`, `SCHEMA_KINDS`) generated from the validators for every kind, and a **CLI** (`anant-visual check | export | schema`).
+- **`profile: "technical"`** for diagrams: 80 nodes and a 3200-unit drawing in a keyboard-operable zoom and pan viewer (`PanZoom`), list kept for screen readers.
 - `npm run gallery` builds `gallery/index.html`: every sample with a theme toggle and replay.
 - Docs: visual-language §21, figure-authoring.
 - Changed: a diagram's words are SVG text, not HTML overlays; arrowheads are polygons, not markers. Appearance is intended to be unchanged.

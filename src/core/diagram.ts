@@ -24,6 +24,10 @@ import { NODE_SHAPES, SHAPE_TEXT, type NodeShape } from "./shapes.js";
  */
 
 export const MAX_NODES = 25;
+/** The `technical` profile is for documentation, where a reader may pan and zoom; see `figure-authoring.md`. */
+export const MAX_NODES_TECHNICAL = 80;
+export const MAX_WIDTH_TECHNICAL = 3200;
+export const PROFILES = ["marketing", "technical"] as const;
 /** Longest text that fits a node box at the diagram's type size (about three lines). */
 export const MAX_LABEL = 48;
 export const MAX_SUBLABEL = 60;
@@ -76,6 +80,12 @@ export const diagramSpecSchema = z
      * architecture or circuit diagram. An edge that skips layers or loops back is unchanged.
      */
     routing: z.enum(["curved", "orthogonal"]).default("curved"),
+    /**
+     * `marketing` (default) keeps a figure small enough to read at a glance: 25 nodes, a width
+     * its type can survive. `technical` is for documentation: up to 80 nodes and a drawing
+     * three times as wide, which the page lets a reader pan and zoom, with the list always at hand.
+     */
+    profile: z.enum(PROFILES).default("marketing"),
     nodes: z
       .array(
         z.object({
@@ -99,7 +109,7 @@ export const diagramSpecSchema = z
         })
       )
       .min(2)
-      .max(MAX_NODES, `a diagram has at most ${MAX_NODES} nodes; split it`),
+      .max(MAX_NODES_TECHNICAL, `a technical diagram has at most ${MAX_NODES_TECHNICAL} nodes; split it`),
     edges: z.array(
       z.object({
         from: idSchema,
@@ -128,6 +138,9 @@ export const diagramSpecSchema = z
     groups: z.array(z.object({ id: idSchema, label: z.string().min(1), parent: idSchema.optional() })).default([]),
   })
   .superRefine((spec, ctx) => {
+    if (spec.profile === "marketing" && spec.nodes.length > MAX_NODES) {
+      ctx.addIssue({ code: "custom", path: ["nodes"], message: `a diagram has at most ${MAX_NODES} nodes; split it (or set profile "technical" for documentation)` });
+    }
     const ids = new Set<string>();
     for (const node of spec.nodes) {
       if (ids.has(node.id)) ctx.addIssue({ code: "custom", message: `duplicate node id "${node.id}"` });
@@ -351,8 +364,9 @@ export function nodeHeight(spec: DiagramSpec): number {
  * where its type renders at 10px or more: roughly 18 units scaled to the figure's
  * width, which is at most 840px of the page's widest column.
  */
-export function showDrawingFrom(width: number, direction: "ltr" | "ttb"): "sm" | "md" | "lg" {
-  if (direction === "ttb") return "sm";
+export function showDrawingFrom(width: number, direction: "ltr" | "ttb", profile: "marketing" | "technical" = "marketing"): "sm" | "md" | "lg" {
+  // A technical figure is always drawn: the reader pans and zooms it instead.
+  if (direction === "ttb" || profile === "technical") return "sm";
   return width <= 1130 ? "md" : "lg";
 }
 
@@ -601,10 +615,11 @@ export function layoutDiagram(spec: DiagramSpec): Layout {
   }
   const width = baseWidth;
   const height = baseHeight + (legendRows ? GEOMETRY.legendTop + legendRows * GEOMETRY.legendRow : 0);
-  if (width > GEOMETRY.maxWidth) {
+  const widthLimit = spec.profile === "technical" ? MAX_WIDTH_TECHNICAL : GEOMETRY.maxWidth;
+  if (width > widthLimit) {
     throw new Error(
       `Invalid diagram "${spec.id}": it is ${Math.round(width)} units wide, and its text would render too small to read. ` +
-        `Use direction "ttb", or fewer steps in a row (at most about ${Math.floor((GEOMETRY.maxWidth - 2 * pad + layerGap) / (W + layerGap))} layers left to right).`
+        `Use direction "ttb", or fewer steps in a row (at most about ${Math.floor((widthLimit - 2 * pad + layerGap) / (W + layerGap))} layers left to right${spec.profile === "marketing" ? `, or set profile "technical"` : ""}).`
     );
   }
 

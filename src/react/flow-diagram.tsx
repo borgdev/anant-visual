@@ -2,6 +2,7 @@ import { useId } from "react";
 import { cx as cn } from "./cx.js";
 import { FigureFrame } from "./figure-frame.js";
 import { MotionHost } from "./motion-host.js";
+import { PanZoom } from "./pan-zoom.js";
 import {
   describeDiagram,
   layoutDiagram,
@@ -41,28 +42,36 @@ export function FlowDiagram({ spec: input }: { spec: DiagramSpecInput }) {
   const equivalent = describeDiagram(spec, layout);
   const scope = `av-${useId().replace(/:/g, "")}`;
   const svg = renderSvg(diagramToScene(spec, layout, spec.caption), { mode: "inline", scope });
-  const { width } = layout;
+  const { width, height } = layout;
+  const technical = spec.profile === "technical";
   // A wide diagram needs more room to stay legible, so it switches to the list later.
-  const showAt = showDrawingFrom(width, spec.direction);
+  const showAt = showDrawingFrom(width, spec.direction, spec.profile);
   const drawing = (
     <div
       className="mx-auto w-full"
-      style={{ maxWidth: `${spec.direction === "ttb" ? width : Math.max(width, 640)}px` }}
+      style={technical ? undefined : { maxWidth: `${spec.direction === "ttb" ? width : Math.max(width, 640)}px` }}
       dangerouslySetInnerHTML={{ __html: svg }}
     />
   );
+  const moving = spec.motion.length ? <MotionHost>{drawing}</MotionHost> : drawing;
 
   return (
     <FigureFrame label={spec.label} caption={spec.caption} figureProps={{ "data-diagram": spec.id }}>
-      <div aria-hidden="true" className={cn("hidden", SHOW[showAt])}>
-        {spec.motion.length ? <MotionHost>{drawing}</MotionHost> : drawing}
-      </div>
+      {technical ? (
+        <PanZoom width={width} height={height} label={spec.label}>
+          {moving}
+        </PanZoom>
+      ) : (
+        <div aria-hidden="true" className={cn("hidden", SHOW[showAt])}>
+          {moving}
+        </div>
+      )}
 
       <ol
         aria-label={`${spec.label}, as a list`}
         className={cn(
           "flex flex-col gap-2",
-          HIDE_LIST[showAt]
+          technical ? "sr-only" : HIDE_LIST[showAt]
         )}
       >
         {equivalent.map((item) => (

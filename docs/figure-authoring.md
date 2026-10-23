@@ -56,6 +56,7 @@ A signature figure and a diagram must not sit in the same band of a page.
 | `nodes[].group` | Draws a labelled region round the members. Members must sit next to each other, or the build fails and names the node in the way |
 | `edges[].style` | `solid` flow, `dashed` optional or asynchronous, `emphasis` the one path the figure is about |
 | `lanes`, `nodes[].lane` | Swimlanes: one band per actor, system or tier, drawn in the order listed. Once any lane exists every node needs one. Flow still reads along the layers; the lane says who does the step. A group sits inside a single lane |
+| `profile` | `marketing` (default) or `technical`. Technical is for documentation: up to 80 nodes and a drawing about three times as wide, shown in a viewer the reader zooms and pans, with the list kept for screen readers. Use it for an architecture or process map; a figure on a landing page stays `marketing` |
 | `routing` | `curved` (default) or `orthogonal`: straight runs with rounded right-angle bends, for architecture and circuit-style figures |
 | `direction` | `ltr` (default) or `ttb`. Use `ttb` for more than about five steps, or for a loop you want to read down the page |
 | A node with no edges | Allowed inside a group, for "what sits where" diagrams (see `topologies`). Place the nodes with `position`, and the text equivalent will say which group each is in |
@@ -101,7 +102,7 @@ A spec names its `kind`; a diagram has none, and a chart is `"kind": "chart"` (c
 | Edges and groups must point at real ids | `edge refers to unknown node "x"` |
 | A group cannot cover a non-member | `group "g" would cover node "x", which is not a member` |
 
-If a diagram needs more than 25 nodes, it is two diagrams. Groups nest: give an inner group `parent: "outer"` and put a node in its innermost group only.
+If a marketing diagram needs more than 25 nodes, it is two diagrams, or it is a `technical` one. Groups nest: give an inner group `parent: "outer"` and put a node in its innermost group only.
 
 ## Other kinds of figure
 
