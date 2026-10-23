@@ -38,7 +38,7 @@ export function wrap(text: string, perLine: number): string[] {
   return lines.length ? lines : [""];
 }
 
-const TONE_INK: Record<string, Ink | undefined> = {
+export const TONE_INK: Record<string, Ink | undefined> = {
   good: "good",
   watch: "watch",
   warn: "warn",
@@ -76,7 +76,7 @@ function outlinePrims(node: PlacedNode): { prims: Primitive[]; text: { x: number
   return { prims, text: g.text };
 }
 
-function nodeItem(node: PlacedNode, neighbours: Set<string>): SceneItem {
+export function nodeItem(node: PlacedNode, neighbours: Set<string>): SceneItem {
   const style = nodeStyle(node);
   const { prims, text } = outlinePrims(node);
   const budget = lineBudget(node, node.w);
@@ -97,7 +97,7 @@ function nodeItem(node: PlacedNode, neighbours: Set<string>): SceneItem {
 }
 
 /** The end of a path and the way it is heading there; with `atStart`, the start and the way it leaves. */
-function tangent(d: string, atStart = false): { end: [number, number]; dir: [number, number] } {
+export function tangent(d: string, atStart = false): { end: [number, number]; dir: [number, number] } {
   const n = (d.match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number);
   const pts: [number, number][] = [];
   for (let i = 0; i + 1 < n.length; i += 2) pts.push([n[i], n[i + 1]]);
@@ -111,19 +111,33 @@ function tangent(d: string, atStart = false): { end: [number, number]; dir: [num
   return { end, dir: [dx / len, dy / len] };
 }
 
-function arrowhead(d: string, atStart = false): [number, number][] {
+export function arrowhead(d: string, atStart = false): [number, number][] {
   const { end, dir } = tangent(d, atStart);
   const [ux, uy] = dir;
   const base: [number, number] = [end[0] - ux * ARROW_LENGTH, end[1] - uy * ARROW_LENGTH];
   return [end, [base[0] - uy * ARROW_HALF, base[1] + ux * ARROW_HALF], [base[0] + uy * ARROW_HALF, base[1] - ux * ARROW_HALF]];
 }
 
-function edgeItems(edge: PlacedEdge, index: number, fromLayer: number): SceneItem[] {
-  const ref = `${edge.from}>${edge.to}>${index}`;
-  const seq = fromLayer + 0.5;
+/** What an edge needs to be drawn: its route, its ends and how it looks. Every figure kind builds these. */
+export type EdgeLike = {
+  from: string;
+  to: string;
+  path: string;
+  mid: { x: number; y: number };
+  style: "solid" | "dashed" | "emphasis";
+  arrow: "end" | "start" | "both" | "none";
+  label?: string;
+  /** The line's ink; the primary accent when omitted. */
+  ink?: Ink;
+  /** Stroke width in artboard units, for a line that should read lighter or heavier than a flow. */
+  width?: number;
+};
+
+/** An edge as scene items: the line with its arrowheads and pulse, and its label if it has one. */
+export function edgeSceneItems(edge: EdgeLike, ref: string, seq: number): SceneItem[] {
   const emphasis = edge.style === "emphasis";
   const dashed = edge.style === "dashed";
-  const ink = { ink: "primary" as const };
+  const ink = { ink: edge.ink ?? ("primary" as const) };
   const items: SceneItem[] = [
     {
       kind: "edge",
@@ -132,7 +146,7 @@ function edgeItems(edge: PlacedEdge, index: number, fromLayer: number): SceneIte
       touches: [edge.from, edge.to],
       traceable: !dashed,
       prims: [
-        { t: "path", d: edge.path, stroke: ink, strokeWidth: emphasis ? STROKE.emphasis : STROKE.primary, dash: dashed ? EDGE_DASH : undefined },
+        { t: "path", d: edge.path, stroke: ink, strokeWidth: edge.width ?? (emphasis ? STROKE.emphasis : STROKE.primary), dash: dashed ? EDGE_DASH : undefined },
         ...(edge.arrow === "end" || edge.arrow === "both" ? [{ t: "poly" as const, points: arrowhead(edge.path), fill: ink }] : []),
         ...(edge.arrow === "start" || edge.arrow === "both" ? [{ t: "poly" as const, points: arrowhead(edge.path, true), fill: ink }] : []),
         { t: "pulse", d: edge.path, r: 5.5, fill: ink },
@@ -228,7 +242,7 @@ export function diagramToScene(spec: DiagramSpec, layout: Layout, description: s
       ],
     });
   }
-  layout.edges.forEach((edge, i) => items.push(...edgeItems(edge, i, layerOf.get(edge.from) ?? 0)));
+  layout.edges.forEach((edge, i) => items.push(...edgeSceneItems(edge, `${edge.from}>${edge.to}>${i}`, (layerOf.get(edge.from) ?? 0) + 0.5)));
   layout.nodes.forEach((node) => items.push(nodeItem(node, neighbours.get(node.id)!)));
   layout.legend.forEach((entry, i) =>
     items.push({

@@ -92,6 +92,21 @@ See `visual-language.md` §21 for the rules.
 
 If a diagram needs more than 25 nodes, it is two diagrams. Groups nest: give an inner group `parent: "outer"` and put a node in its innermost group only.
 
+## Other kinds of figure
+
+A diagram has no `kind`. The rest name theirs, and all are drawn, exported and animated the same way (`<Figure spec={...} />`, `figureToSvg`, `figureToPng`). Each has the same caption rule and the same `motion` and `interactive` fields.
+
+| `kind` | Use it for | Shape of the spec | Limits |
+|---|---|---|---|
+| `tree` | A hierarchy: an org chart, a taxonomy | `root` with nested `children`; `direction` `ttb` (default) or `ltr` | 40 nodes, 5 levels, about 8 siblings across (use `ltr` for more) |
+| `mindmap` | An idea and what hangs off it | `center` and `branches`, each with nested `children`; branches are shared between both sides | 40 nodes, about 3 levels |
+| `timeline` | Events in order | `events` (`when`, `label`, `detail`), optional `phases` spanning events; `direction` | 8 events across, 14 down. Spacing is by order, **not to scale**, and says so |
+| `matrix` | Where things sit on two judgements | `x`, `y` axes (`label`, `low`, `high`), optional `quadrants`, `items` at 0 to 1 | 16 items. Positions are relative, **not measured**, and it says so |
+| `sequence` | Who talks to whom, in order | `participants` and `messages` (`solid` call, `dashed` reply, `emphasis`) | 6 participants, 24 messages |
+| `network` | Things and their links, no order | `nodes` (`weight`, `cluster`) and `links` (`directed`) | 40 nodes; every node needs a link. The layout is seeded, so it never changes between builds |
+
+Pick the kind by the question the reader is asking: *how is it organised* (tree), *what is it made of* (mind map), *when* (timeline), *which first* (matrix), *what happens, in what order, between whom* (sequence), *what is connected to what* (network), *what is the flow or the architecture* (diagram).
+
 ## A chart, in three steps
 
 **1. Add a spec** to `CHARTS` in the same file:

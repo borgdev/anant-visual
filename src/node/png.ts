@@ -1,4 +1,4 @@
-import { diagramToSvg } from "../core/export.js";
+import { figureToSvg, type FigureInput } from "../core/figures/index.js";
 import type { DiagramSpecInput } from "../core/diagram.js";
 import type { RenderOptions } from "../core/render-svg.js";
 
@@ -36,9 +36,12 @@ export async function svgToPng(svg: string, options: { scale?: number; fontFiles
   return resvg.render().asPng();
 }
 
-export async function diagramToPng(input: DiagramSpecInput, options: PngOptions = {}): Promise<Uint8Array> {
+/** Any figure (a diagram, tree, mind map, timeline, matrix, sequence or network) as a PNG. */
+export async function figureToPng(input: FigureInput, options: PngOptions = {}): Promise<Uint8Array> {
   const { scale, fontFiles, ...render } = options;
   // Motion is dropped for a still, so the first frame is the whole drawing.
-  const svg = diagramToSvg({ ...input, motion: [], interactive: false }, render);
+  const svg = figureToSvg({ ...input, motion: [], interactive: false } as FigureInput, render);
   return svgToPng(svg, { scale, fontFiles, fontFamily: render.fontFamily });
 }
+
+export const diagramToPng = (input: DiagramSpecInput, options: PngOptions = {}) => figureToPng(input, options);

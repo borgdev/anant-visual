@@ -688,3 +688,11 @@ Rules, which extend §10 and do not relax it:
 - `stroke-dashoffset` is now permitted for `trace` on a diagram edge, as it is for `state-trace`. `stroke-dasharray` on a dashed edge is never animated or rescaled.
 - Focus quiets by opacity only, for fine pointers that can hover; it is a reading aid and carries nothing the list does not.
 - The one-motion-per-asset and three-animated-figures-per-page limits (§10.3) still hold on marketing pages. A `technical` profile that relaxes them is planned, not yet in force.
+
+### Figure kinds
+
+Beyond the diagram, the library draws six more kinds of communication figure from the same scene (`tree`, `mindmap`, `timeline`, `matrix`, `sequence`, `network`). They share the diagram's contract and add three rules of their own:
+
+- **A figure that implies a measure says what it is not.** A timeline's spacing is by order and the accessible list ends "Events are shown in order, not to scale"; a matrix's list ends "Positions show relative standing, not measured values". The same rule that makes a chart state `basis`.
+- **A layout is reproducible.** A network uses a seeded simulation with a fixed number of steps; nothing reads `Math.random` or the clock, so a figure never changes between builds.
+- **The accessible equivalent is built from the figure's own structure**, in its reading order: a hierarchy by level, a sequence by step, a matrix by what each item is high or low on, a network by what each node joins.

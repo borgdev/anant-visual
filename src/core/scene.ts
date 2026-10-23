@@ -42,7 +42,7 @@ export type Primitive =
       size: number;
       lineHeight: number;
       weight: 400 | 500 | 600 | 700;
-      anchor: "start" | "middle";
+      anchor: "start" | "middle" | "end";
       fill: Paint;
       tracking?: number;
       /** Degrees about (x, y); a lane header on a row reads upward. */
@@ -77,4 +77,9 @@ export type Scene = {
   items: SceneItem[];
   motion: Motion[];
   interactive: boolean;
+  /**
+   * The accessible equivalent, in reading order, for figures that are not a diagram (a diagram
+   * builds its own list from the same layout). A renderer shows it as a list beside the drawing.
+   */
+  equivalent?: { text: string; detail?: string }[];
 };

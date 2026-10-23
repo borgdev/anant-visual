@@ -1,7 +1,7 @@
 // Builds gallery/index.html: every sample figure, drawn by the real renderer, with a theme
 // toggle and a replay button, so motion can be judged in a browser. Run `npm run gallery`.
 import { mkdirSync, writeFileSync } from "node:fs";
-import { DEFAULT_PALETTE, INK_VAR, renderSvg, resolveInk, sceneFromDiagram } from "../dist/core/index.js";
+import { DEFAULT_PALETTE, INK_VAR, renderSvg, resolveInk, sceneFromFigure } from "../dist/core/index.js";
 
 const CAPTION = "A caption long enough to state the concept the figure makes, as the contract requires of every figure.";
 const samples = [
@@ -94,6 +94,84 @@ const samples = [
     },
   },
   {
+    title: "Mind map",
+    note: "kind: mindmap; branches take turns being coloured; reveal + trace",
+    spec: {
+      kind: "mindmap", id: "mm", label: "The visual system", caption: CAPTION, motion: ["reveal", "trace"], interactive: true,
+      center: { id: "vis", label: "Visual system", icon: "gear" },
+      branches: [
+        { id: "tokens", label: "Tokens", children: [{ id: "col", label: "Colour" }, { id: "str", label: "Strokes" }, { id: "mot", label: "Motion" }] },
+        { id: "engines", label: "Engines", children: [{ id: "dia", label: "Diagrams", children: [{ id: "lan", label: "Lanes" }, { id: "grp", label: "Groups" }] }, { id: "cha", label: "Charts" }] },
+        { id: "export", label: "Export", children: [{ id: "svg", label: "SVG" }, { id: "png", label: "PNG" }] },
+        { id: "docs", label: "Docs", children: [{ id: "con", label: "Contract" }, { id: "aut", label: "Authoring" }] },
+      ],
+    },
+  },
+  {
+    title: "Hierarchy",
+    note: "kind: tree; reveal by level",
+    spec: {
+      kind: "tree", id: "org", label: "How the team is organised", caption: CAPTION, motion: ["reveal", "trace"],
+      root: { id: "ceo", label: "Chief executive", children: [
+        { id: "cto", label: "Technology", sublabel: "Engineering and data", children: [{ id: "plat", label: "Platform" }, { id: "app", label: "Applications" }, { id: "sec", label: "Security", tone: "warn" }] },
+        { id: "cfo", label: "Finance", children: [{ id: "fpa", label: "Planning" }, { id: "ctl", label: "Control" }] },
+        { id: "coo", label: "Operations", children: [{ id: "sup", label: "Support" }] },
+      ] },
+    },
+  },
+  {
+    title: "Sequence",
+    note: "kind: sequence; each message plays in order",
+    spec: {
+      kind: "sequence", id: "sq", label: "How an order is placed", caption: CAPTION, motion: ["reveal", "trace", "flow"],
+      participants: [{ id: "u", label: "Browser", icon: "globe" }, { id: "api", label: "API", shape: "hexagon" }, { id: "db", label: "Database", shape: "cylinder" }],
+      messages: [
+        { from: "u", to: "api", label: "POST /orders" }, { from: "api", to: "api", label: "Validate" },
+        { from: "api", to: "db", label: "INSERT order", style: "emphasis" }, { from: "db", to: "api", label: "id", style: "dashed" },
+        { from: "api", to: "u", label: "201 Created", style: "dashed" },
+      ],
+    },
+  },
+  {
+    title: "Timeline",
+    note: "kind: timeline; in order, not to scale",
+    spec: {
+      kind: "timeline", id: "tl", label: "How the library grew", caption: CAPTION, motion: ["reveal", "trace"],
+      events: [
+        { id: "a", when: "Step 1", label: "Scene model", detail: "One drawing for page and file" }, { id: "b", when: "Step 2", label: "Nested groups", detail: "Cloud, VPC, subnet" },
+        { id: "c", when: "Step 3", label: "Swimlanes", tone: "good" }, { id: "d", when: "Step 4", label: "New figure kinds" }, { id: "e", when: "Step 5", label: "Charts on the scene", tone: "watch" },
+      ],
+      phases: [{ id: "p1", label: "Foundation", from: "a", to: "b" }, { id: "p2", label: "Breadth", from: "c", to: "e" }],
+    },
+  },
+  {
+    title: "Matrix",
+    note: "kind: matrix; relative standing, not measured",
+    spec: {
+      kind: "matrix", id: "mx", label: "What to build next", caption: CAPTION, motion: ["reveal"],
+      x: { label: "Effort", low: "Low", high: "High" }, y: { label: "Impact", low: "Low", high: "High" }, quadrants: ["Do next", "Plan", "Maybe", "Skip"],
+      items: [
+        { id: "a", label: "SVG export", x: 0.2, y: 0.9, tone: "good" }, { id: "b", label: "Nested groups", x: 0.3, y: 0.75 }, { id: "c", label: "Network graphs", x: 0.8, y: 0.7 },
+        { id: "d", label: "Pan and zoom", x: 0.7, y: 0.35, tone: "watch" }, { id: "e", label: "Icons", x: 0.15, y: 0.3 }, { id: "f", label: "3D charts", x: 0.9, y: 0.1, tone: "bad" },
+      ],
+    },
+  },
+  {
+    title: "Network",
+    note: "kind: network; a seeded layout, so the picture never changes between builds; reveal + hover focus",
+    spec: {
+      kind: "network", id: "nw", label: "How the services connect", caption: CAPTION, motion: ["reveal"], interactive: true,
+      nodes: [
+        { id: "a", label: "Gateway", weight: 5, cluster: "edge" }, { id: "b", label: "Auth", weight: 3, cluster: "edge" }, { id: "c", label: "Orders", weight: 4, cluster: "core" },
+        { id: "d", label: "Billing", weight: 3, cluster: "core" }, { id: "e", label: "Search", weight: 2, cluster: "data" }, { id: "f", label: "Cache", weight: 2, cluster: "data", tone: "watch" }, { id: "g", label: "Mailer", weight: 1, cluster: "edge" },
+      ],
+      links: [
+        { from: "a", to: "b", directed: true }, { from: "a", to: "c", directed: true }, { from: "c", to: "d", directed: true },
+        { from: "c", to: "e" }, { from: "e", to: "f" }, { from: "d", to: "g", style: "dashed" }, { from: "b", to: "g" },
+      ],
+    },
+  },
+  {
     title: "Top to bottom",
     note: "reveal only",
     spec: {
@@ -116,7 +194,7 @@ const samples = [
 const vars = (theme) => Object.entries(INK_VAR).map(([ink, v]) => `${v}:${resolveInk(ink, theme)}`).join(";");
 const figures = samples
   .map((s, i) => {
-    const svg = renderSvg(sceneFromDiagram(s.spec), { mode: "inline", scope: `av-g${i}` });
+    const svg = renderSvg(sceneFromFigure(s.spec), { mode: "inline", scope: `av-g${i}` });
     return `<section><header><h2>${s.title}</h2><span>${s.note}</span><button data-replay>Replay</button></header><div class="fig">${svg}</div></section>`;
   })
   .join("\n");
