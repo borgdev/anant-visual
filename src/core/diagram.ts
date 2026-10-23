@@ -73,7 +73,8 @@ export const diagramSpecSchema = z
         style: z.enum(EDGE_STYLES).default("solid"),
       })
     ),
-    groups: z.array(z.object({ id: idSchema, label: z.string().min(1) })).default([]),
+    /** A group may sit inside another: set `parent`. A node's `group` is its innermost one. */
+    groups: z.array(z.object({ id: idSchema, label: z.string().min(1), parent: idSchema.optional() })).default([]),
   })
   .superRefine((spec, ctx) => {
     const ids = new Set<string>();
@@ -87,6 +88,20 @@ export const diagramSpecSchema = z
       }
     }
     const groups = new Set(spec.groups.map((g) => g.id));
+    for (const g of spec.groups) {
+      if (g.parent && !groups.has(g.parent)) ctx.addIssue({ code: "custom", message: `group "${g.id}" is inside unknown group "${g.parent}"` });
+    }
+    const parentOf = new Map(spec.groups.map((g) => [g.id, g.parent]));
+    for (const g of spec.groups) {
+      const seen = new Set<string>([g.id]);
+      for (let cur = g.parent; cur; cur = parentOf.get(cur)) {
+        if (seen.has(cur)) {
+          ctx.addIssue({ code: "custom", message: `group "${g.id}" is inside itself` });
+          break;
+        }
+        seen.add(cur);
+      }
+    }
     for (const node of spec.nodes) {
       if (node.group && !groups.has(node.group)) {
         ctx.addIssue({ code: "custom", message: `node "${node.id}" is in unknown group "${node.group}"` });
@@ -135,7 +150,7 @@ export type PlacedEdge = DiagramEdge & {
   /** True when the edge runs against the reading direction, so it loops around. */
   back: boolean;
 };
-export type PlacedGroup = { id: string; label: string; x: number; y: number; w: number; h: number };
+export type PlacedGroup = { id: string; label: string; parent?: string; depth: number; x: number; y: number; w: number; h: number };
 export type Layout = {
   width: number;
   height: number;
@@ -239,6 +254,34 @@ export function layoutDiagram(spec: DiagramSpec): Layout {
     if (n.position) layerOf.set(n.id, n.position.layer);
   });
 
+  // A node's chain is its groups from the outermost in, so nested groups can be kept whole.
+  const parentOf = new Map(spec.groups.map((g) => [g.id, g.parent]));
+  const chainOf = (gid?: string): string[] => {
+    const out: string[] = [];
+    for (let cur = gid; cur; cur = parentOf.get(cur)) out.unshift(cur);
+    return out;
+  };
+  const chains = new Map(spec.nodes.map((n) => [n.id, chainOf(n.group)]));
+  const maxDepth = Math.max(0, ...[...chains.values()].map((c) => c.length));
+  // Puts the members of every group, at every depth, next to each other, keeping the order
+  // the sweeps chose for the blocks themselves. Without it a sweep can split a group.
+  const regroup = (layer: string[]) => {
+    const place = (ids: string[], depth: number): string[] => {
+      const out: string[] = [];
+      const seen = new Set<string>();
+      for (const id of ids) {
+        const g = chains.get(id)![depth];
+        if (g === undefined) out.push(id);
+        else if (!seen.has(g)) {
+          seen.add(g);
+          out.push(...place(ids.filter((x) => chains.get(x)![depth] === g), depth + 1));
+        }
+      }
+      return out;
+    };
+    layer.splice(0, layer.length, ...place(layer, 0));
+  };
+
   // 2. Initial order: declaration order, with members of a group kept together.
   const groupRank = new Map(spec.groups.map((g, i) => [g.id, i]));
   const declared = new Map(spec.nodes.map((n, i) => [n.id, i]));
@@ -252,6 +295,8 @@ export function layoutDiagram(spec: DiagramSpec): Layout {
     })
     .forEach((n) => layers[layerOf.get(n.id)!].push(n.id));
 
+  layers.forEach(regroup);
+
   // 3. Barycentre sweeps reduce crossings. Hand-placed nodes keep their row.
   const pinned = new Map(spec.nodes.filter((n) => n.position).map((n) => [n.id, n.position!.row]));
   const indexIn = (layer: string[], id: string) => layer.indexOf(id);
@@ -263,6 +308,7 @@ export function layoutDiagram(spec: DiagramSpec): Layout {
       })
     );
     layer.sort((a, b) => score.get(a)! - score.get(b)! || declared.get(a)! - declared.get(b)!);
+    regroup(layer);
   };
   for (let pass = 0; pass < 4; pass++) {
     for (let i = 1; i < layers.length; i++) reorder(layers[i], (id) => preds.get(id)!, layers[i - 1]);
@@ -277,27 +323,32 @@ export function layoutDiagram(spec: DiagramSpec): Layout {
   // 4. Coordinates. `along` runs with the reading direction, `across` is the other axis.
   const across = ttb ? W : H;
   const alongSize = ttb ? H : W;
-  const acrossGap = rowGap;
   const nodeLayer = new Map<string, number>();
   layers.forEach((layer, li) => layer.forEach((id) => nodeLayer.set(id, li)));
+  // Each nesting level takes room at both ends of a layer, so deeper nesting widens every gap.
+  const nestRoom = Math.max(0, maxDepth - 1) * 2 * GEOMETRY.groupPad;
   // The gap after each layer. Left to right, a labelled edge needs a gap its label fits
   // in; top to bottom the label sits in the gap's height, so a fixed gap serves.
   const gaps = layers.map((_, li) => {
-    if (ttb) return 56;
+    if (ttb) return 56 + nestRoom;
     const longest = Math.max(
       0,
       ...spec.edges
         .filter((e) => nodeLayer.get(e.from) === li && nodeLayer.get(e.to) === li + 1)
         .map((e) => e.label?.length ?? 0)
     );
-    return longest ? Math.max(layerGap, 28 + longest * GEOMETRY.edgeLabelChar) : layerGap;
+    return (longest ? Math.max(layerGap, 28 + longest * GEOMETRY.edgeLabelChar) : layerGap) + nestRoom;
   });
-  const alongStart = layers.map((_, li) => pad + li * alongSize + gaps.slice(0, li).reduce((a, b) => a + b, 0));
+  // Room a group's border takes beyond the canvas margin, so the outermost box stays inside it.
+  const side = Math.max(0, maxDepth * GEOMETRY.groupPad - 24);
+  const alongPad = pad + side;
+  const alongStart = layers.map((_, li) => alongPad + li * alongSize + gaps.slice(0, li).reduce((a, b) => a + b, 0));
 
   // A group label that will wrap to two lines needs room above, so reserve it up front.
+  const inGroup = (id: string, gid: string) => chains.get(id)!.includes(gid);
   const labelHeight = new Map<string, number>();
   for (const g of spec.groups) {
-    const members = spec.nodes.filter((n) => n.group === g.id).map((n) => nodeLayer.get(n.id)!);
+    const members = spec.nodes.filter((n) => inGroup(n.id, g.id)).map((n) => nodeLayer.get(n.id)!);
     if (!members.length) continue;
     const lo = Math.min(...members);
     const hi = Math.max(...members);
@@ -305,18 +356,39 @@ export function layoutDiagram(spec: DiagramSpec): Layout {
     const room = span + 2 * GEOMETRY.groupPad - 28;
     labelHeight.set(g.id, g.label.length * GEOMETRY.groupLabelChar > room ? GEOMETRY.groupLabelTall : GEOMETRY.groupLabel);
   }
-  const top = Math.max(0, ...[...labelHeight.values()].map((h) => h - GEOMETRY.groupLabel));
+  const labelOf = (gid: string) => labelHeight.get(gid) ?? GEOMETRY.groupLabel;
+  // Everything a node's groups need above it, so the topmost box does not leave the canvas.
+  const needAbove = Math.max(0, ...spec.nodes.map((n) => chains.get(n.id)!.reduce((sum, g) => sum + GEOMETRY.groupPad + labelOf(g), 0)));
+  const top = Math.max(0, needAbove - pad);
 
-  const widest = Math.max(...layers.map((l) => l.length));
-  const acrossExtent = widest * across + (widest - 1) * acrossGap;
+  // The gap between neighbours in a layer grows where a group's border runs between them.
+  const crossGap = (p: string, q: string) => {
+    const a = chains.get(p)!;
+    const b = chains.get(q)!;
+    let k = 0;
+    while (k < a.length && k < b.length && a[k] === b[k]) k++;
+    const leaving = (a.length - k) * GEOMETRY.groupPad;
+    const entering = b.slice(k).reduce((sum, g) => sum + GEOMETRY.groupPad + (ttb ? 0 : labelOf(g)), 0);
+    return rowGap + Math.max(0, leaving + entering - rowGap);
+  };
+  const offsets = layers.map((layer) => {
+    const pos: number[] = [];
+    let cur = 0;
+    layer.forEach((id, i) => {
+      if (i > 0) cur += crossGap(layer[i - 1], id);
+      pos.push(cur);
+      cur += across;
+    });
+    return { pos, extent: cur };
+  });
+  const acrossExtent = Math.max(...offsets.map((o) => o.extent));
   const placed = new Map<string, PlacedNode>();
   const byId = new Map(spec.nodes.map((n) => [n.id, n]));
   layers.forEach((layer, li) => {
-    const colExtent = layer.length * across + (layer.length - 1) * acrossGap;
-    const offset = pad + (acrossExtent - colExtent) / 2;
+    const offset = alongPad + (acrossExtent - offsets[li].extent) / 2;
     layer.forEach((id, ri) => {
       const along = alongStart[li];
-      const cross = offset + ri * (across + acrossGap);
+      const cross = offset + offsets[li].pos[ri];
       placed.set(id, {
         ...byId.get(id)!,
         x: ttb ? cross : along,
@@ -333,8 +405,8 @@ export function layoutDiagram(spec: DiagramSpec): Layout {
   const right = Math.max(...nodes.map((n) => n.x + n.w));
   const bottom = Math.max(...nodes.map((n) => n.y + n.h));
   const hasBack = back.size > 0;
-  const width = right + pad + (ttb && hasBack ? GEOMETRY.backEdgeRoom : 0);
-  const height = bottom + pad + (!ttb && hasBack ? GEOMETRY.backEdgeRoom : 0);
+  const width = right + alongPad + (ttb && hasBack ? GEOMETRY.backEdgeRoom : 0);
+  const height = bottom + alongPad + (!ttb && hasBack ? GEOMETRY.backEdgeRoom : 0);
   if (width > GEOMETRY.maxWidth) {
     throw new Error(
       `Invalid diagram "${spec.id}": it is ${Math.round(width)} units wide, and its text would render too small to read. ` +
@@ -409,17 +481,27 @@ export function layoutDiagram(spec: DiagramSpec): Layout {
     return { ...edge, path, mid, back: isBack };
   });
 
-  // 6. Groups: the padded bounding box of their members.
-  const groups: PlacedGroup[] = spec.groups.flatMap((g) => {
-    const members = nodes.filter((n) => n.group === g.id);
-    if (!members.length) return [];
-    const x1 = Math.min(...members.map((n) => n.x)) - GEOMETRY.groupPad;
-    const y1 = Math.min(...members.map((n) => n.y)) - GEOMETRY.groupPad - (labelHeight.get(g.id) ?? GEOMETRY.groupLabel);
-    const x2 = Math.max(...members.map((n) => n.x + n.w)) + GEOMETRY.groupPad;
-    const y2 = Math.max(...members.map((n) => n.y + n.h)) + GEOMETRY.groupPad;
+  // 6. Groups: the padded bounding box of their members and of the groups inside them,
+  // built from the innermost out so a parent always encloses its children.
+  const depthOf = (gid: string) => chainOf(gid).length - 1;
+  const boxes = new Map<string, { x1: number; y1: number; x2: number; y2: number }>();
+  const byDepth = [...spec.groups].sort((a, b) => depthOf(b.id) - depthOf(a.id));
+  for (const g of byDepth) {
+    const parts = [
+      ...nodes.filter((n) => n.group === g.id).map((n) => ({ x1: n.x, y1: n.y, x2: n.x + n.w, y2: n.y + n.h })),
+      ...spec.groups.filter((c) => c.parent === g.id && boxes.has(c.id)).map((c) => boxes.get(c.id)!),
+    ];
+    if (!parts.length) continue;
+    const box = {
+      x1: Math.min(...parts.map((p) => p.x1)) - GEOMETRY.groupPad,
+      y1: Math.min(...parts.map((p) => p.y1)) - GEOMETRY.groupPad - labelOf(g.id),
+      x2: Math.max(...parts.map((p) => p.x2)) + GEOMETRY.groupPad,
+      y2: Math.max(...parts.map((p) => p.y2)) + GEOMETRY.groupPad,
+    };
+    boxes.set(g.id, box);
     for (const other of nodes) {
-      if (other.group === g.id) continue;
-      const overlaps = other.x < x2 && other.x + other.w > x1 && other.y < y2 && other.y + other.h > y1;
+      if (inGroup(other.id, g.id)) continue;
+      const overlaps = other.x < box.x2 && other.x + other.w > box.x1 && other.y < box.y2 && other.y + other.h > box.y1;
       if (overlaps) {
         throw new Error(
           `Invalid diagram "${spec.id}": group "${g.id}" would cover node "${other.id}", which is not a member. ` +
@@ -427,8 +509,23 @@ export function layoutDiagram(spec: DiagramSpec): Layout {
         );
       }
     }
-    return [{ id: g.id, label: g.label, x: x1, y: y1, w: x2 - x1, h: y2 - y1 }];
-  });
+  }
+  const groups: PlacedGroup[] = spec.groups
+    .filter((g) => boxes.has(g.id))
+    .map((g) => {
+      const b = boxes.get(g.id)!;
+      return { id: g.id, label: g.label, parent: g.parent, depth: depthOf(g.id), x: b.x1, y: b.y1, w: b.x2 - b.x1, h: b.y2 - b.y1 };
+    });
+  // Two groups that are not inside one another must not overlap.
+  for (const a of groups) {
+    for (const b of groups) {
+      if (a.id >= b.id || chainOf(a.id).includes(b.id) || chainOf(b.id).includes(a.id)) continue;
+      if (a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y) {
+        throw new Error(`Invalid diagram "${spec.id}": groups "${a.id}" and "${b.id}" overlap. Keep their members apart, or nest one in the other.`);
+      }
+    }
+  }
+  groups.sort((a, b) => a.depth - b.depth);
 
   return { width, height, nodes, edges, groups };
 }
@@ -442,7 +539,14 @@ export function describeDiagram(
   layout: Layout
 ): { id: string; text: string; leadsTo: string[]; group?: string }[] {
   const label = new Map(spec.nodes.map((n) => [n.id, n.label]));
-  const groupLabel = new Map(spec.groups.map((g) => [g.id, g.label]));
+  const parentOf = new Map(spec.groups.map((g) => [g.id, g.parent]));
+  const groupLabel = new Map(
+    spec.groups.map((g) => {
+      const path: string[] = [];
+      for (let cur: string | undefined = g.id; cur; cur = parentOf.get(cur)) path.unshift(spec.groups.find((x) => x.id === cur)!.label);
+      return [g.id, path.join(" › ")] as const;
+    })
+  );
   return [...layout.nodes]
     .sort((a, b) => a.layer - b.layer || a.row - b.row)
     .map((node) => {

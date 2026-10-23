@@ -84,7 +84,7 @@ See `visual-language.md` §21 for the rules.
 | Edges and groups must point at real ids | `edge refers to unknown node "x"` |
 | A group cannot cover a non-member | `group "g" would cover node "x", which is not a member` |
 
-If a diagram needs more than 25 nodes or more than two levels of grouping, it is two diagrams.
+If a diagram needs more than 25 nodes, it is two diagrams. Groups nest: give an inner group `parent: "outer"` and put a node in its innermost group only.
 
 ## A chart, in three steps
 

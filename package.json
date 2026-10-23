@@ -39,7 +39,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "check": "npm run typecheck && npm run test && npm run build",
-    "prepare": "npm run build"
+    "prepare": "npm run build",
+    "gallery": "npm run build && node scripts/gallery.mjs"
   },
   "dependencies": {
     "zod": "^4.6.5"

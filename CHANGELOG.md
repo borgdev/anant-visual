@@ -6,6 +6,9 @@
 - `node`: new entry `@anant/visual/node` with `diagramToPng` and `svgToPng` (optional peer `@resvg/resvg-js`).
 - `react`: `FlowDiagram` now draws through the scene renderer, so the page and an export are the same drawing. New `MotionHost` arms and plays motion once in view.
 - Spec: `motion` (`reveal`, `trace`, `flow`) and `interactive` focus, both off by default.
+- **Nested groups**: a group may set `parent`; a parent encloses its children, the text equivalent names the whole path (`Cloud › VPC › Subnet`), and two unrelated groups that overlap fail the build.
+- **Group-aware layout**: crossing-reduction sweeps no longer split a group around an outsider, and room is made between a group's border and its neighbours.
+- `npm run gallery` builds `gallery/index.html`: every sample with a theme toggle and replay.
 - Docs: visual-language §21, figure-authoring.
 - Changed: a diagram's words are SVG text, not HTML overlays; arrowheads are polygons, not markers. Appearance is intended to be unchanged.
 
