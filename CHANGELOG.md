@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.1
+
+Fixes from a site that built charts, timelines and bar charts on 0.2.0.
+
+- **Numbers are not misstated.** Values and the axis rounded to one decimal, so 0.99 showed as "1.0" and a 0.25 tick as "0.3". They now show what the number needs: up to two decimals, trailing zeros dropped (one above a thousand). A chart can fix them with `decimals` (0 to 4). `formatValue` takes `decimals` as a fourth argument, and `formatNumber` is exported.
+- **A long source or note is no longer clipped.** The chart's basis chip wraps inside its outline (on its own row when it does not fit beside the series names) and the note wraps; the figure grows to hold them. A series label is limited to 40 characters, because it must fit the legend.
+- **A box that cannot hold its words is sized to, or refused.** Timeline cards, tree and mind-map nodes and sequence participants had fixed sizes, so long text ran out of them. Each is now as tall as its words need (a timeline card to its own, a tree or sequence row to the fullest, a mind-map level to its fullest), and a box that still cannot hold its words fails the build and says so. Layout now counts the lines the words actually wrap to, instead of estimating from the length, so a diagram node whose words wrap further than estimated grows to fit.
+- **Hyphenated and unbroken names wrap.** A long name is broken after its hyphens ("Cross-functional-review" becomes "Cross-" and "functional-review"), and a word with no break is cut at the line's budget rather than left to overflow its column. A bar chart's rows grow to hold a name that wraps.
+- Golden SVGs for the mind map, hierarchy, sequence, timeline and both charts changed accordingly (a few units taller where words needed room).
+
 ## 0.2.0
 
 **Breaking for a site's tests, not for its pages.** `FlowDiagram` and `Chart` are now one SVG with live `<text>` and one scoped `<style>`, where 0.1.0 drew HTML boxes over an SVG. A test that asserts the old markup (no `<text>`, no `<style>`, a `div.absolute.flex` box) fails. `docs/patches/functional-figures-0.2.0.patch` updates AnantVerify's `functional-figures.spec.ts`; the same three changes apply to any site's copy. `SignatureFigure`, the tokens and `theme.css` are unchanged.

@@ -1,4 +1,4 @@
-import { axisMax, formatValue, parseChart, ticks, type ChartSpec, type ChartSpecInput } from "./chart.js";
+import { axisMax, formatNumber, formatValue, parseChart, ticks, type ChartSpec, type ChartSpecInput } from "./chart.js";
 import { TONE_INK, wrap } from "./diagram-scene.js";
 import type { Ink } from "./color.js";
 import type { Primitive, Scene, SceneItem } from "./scene.js";
@@ -12,7 +12,6 @@ import { SERIES, STROKE } from "./tokens.js";
  */
 
 const W = 960;
-const fmt = (t: number) => (Number.isInteger(t) ? String(t) : t.toFixed(1));
 const grid = (d: string): Primitive => ({ t: "path", d, stroke: { ink: "foreground", opacity: 0.12 }, strokeWidth: STROKE.hairline });
 const label = (x: number, y: number, line: string, o: { size?: number; anchor?: "start" | "middle" | "end"; weight?: 400 | 500 | 600 | 700; ink?: Ink } = {}): Primitive => ({
   t: "text",
@@ -26,59 +25,74 @@ const label = (x: number, y: number, line: string, o: { size?: number; anchor?: 
   fill: { ink: o.ink ?? "muted" },
 });
 
+/**
+ * The key under the chart: a swatch and name per series, the basis chip, and the note. Every part
+ * wraps to the width, so nothing is clipped however long the source or the note is; the height
+ * grows to hold it.
+ */
 function legend(spec: ChartSpec, y: number): { items: SceneItem[]; height: number } {
   const items: SceneItem[] = [];
-  const entries: { text: string; swatch: Primitive[]; width: number }[] = spec.series.map((s, i) => {
+  const left = 24;
+  const right = W - 24;
+  let x = left;
+  let rowY = y;
+  spec.series.forEach((s, i) => {
     const w = s.label.length * 7.4 + 34 + 28;
-    const ink = SERIES[i].ink;
-    const swatch: Primitive[] =
-      spec.type === "line"
-        ? [{ t: "path", d: "M0,0 L24,0", stroke: { ink }, strokeWidth: STROKE.primary, dash: SERIES[i].dash }]
-        : [{ t: "rect", x: 0, y: -6, w: 22, h: 12, rx: 3, fill: { ink, opacity: SERIES[i].fillOpacity } }];
-    return { text: s.label, swatch, width: w };
-  });
-  const basis = spec.basis === "illustrative" ? "ILLUSTRATIVE" : `MEASURED · ${spec.source}`.toUpperCase();
-  let x = 24;
-  let row = 0;
-  const place = (width: number) => {
-    if (x > 24 && x + width > W - 24) {
-      x = 24;
-      row++;
+    if (x > left && x + w > right) {
+      x = left;
+      rowY += 28;
     }
-    const at = x;
-    x += width;
-    return { x: at, y: y + row * 28 };
-  };
-  entries.forEach((e) => {
-    const p = place(e.width);
-    const shift = (prim: Primitive): Primitive => (prim.t === "rect" ? { ...prim, x: prim.x + p.x, y: prim.y + p.y } : prim.t === "path" ? { ...prim, d: `M${p.x},${p.y} L${p.x + 24},${p.y}` } : prim);
-    items.push({ kind: "legend", ref: `legend:${e.text}`, seq: 0, touches: [], prims: [...e.swatch.map(shift), label(p.x + 32, p.y + 4.5, e.text)] });
+    const ink = SERIES[i].ink;
+    const swatch: Primitive =
+      spec.type === "line"
+        ? { t: "path", d: `M${x},${rowY} L${x + 24},${rowY}`, stroke: { ink }, strokeWidth: STROKE.primary, dash: SERIES[i].dash }
+        : { t: "rect", x, y: rowY - 6, w: 22, h: 12, rx: 3, fill: { ink, opacity: SERIES[i].fillOpacity } };
+    items.push({ kind: "legend", ref: `legend:${s.id}`, seq: 0, touches: [], prims: [swatch, label(x + 32, rowY + 4.5, s.label)] });
+    x += w;
   });
-  const chip = place(basis.length * 8 + 28);
-  const chipW = basis.length * 8 + 16;
+
+  // The basis chip wraps inside its own outline, on its own row when it will not fit beside the names.
+  const basis = (spec.basis === "illustrative" ? "ILLUSTRATIVE" : `MEASURED · ${spec.source}`).toUpperCase();
+  const lines = wrap(basis, 96);
+  const chipW = Math.max(...lines.map((l) => l.length)) * 8 + 24;
+  if (x > left && (lines.length > 1 || x + chipW > right)) {
+    x = left;
+    rowY += 28;
+  }
+  const chipH = 22 + (lines.length - 1) * 15;
   items.push({
     kind: "legend",
     ref: "legend:basis",
     seq: 0,
     touches: [],
     prims: [
-      { t: "rect", x: chip.x, y: chip.y - 11, w: chipW, h: 22, rx: 11, stroke: { ink: "border" }, strokeWidth: STROKE.hairline },
-      label(chip.x + chipW / 2, chip.y + 4, basis, { size: 11.5, anchor: "middle", weight: 600 }),
+      { t: "rect", x, y: rowY - 11, w: chipW, h: chipH, rx: lines.length > 1 ? 12 : 11, stroke: { ink: "border" }, strokeWidth: STROKE.hairline },
+      { t: "text", x: x + chipW / 2, y: rowY, lines, size: 11.5, lineHeight: 15, weight: 600, anchor: "middle", fill: { ink: "muted" } },
     ],
   });
-  let height = (row + 1) * 28;
+  rowY += chipH - 11 + 6;
+  let bottom = rowY + 11;
   if (spec.note) {
-    items.push({ kind: "legend", ref: "legend:note", seq: 0, touches: [], prims: [label(24, y + height + 8, spec.note, { size: 14, ink: "foreground", weight: 500 })] });
-    height += 28;
+    const noteLines = wrap(spec.note, 108);
+    items.push({
+      kind: "legend",
+      ref: "legend:note",
+      seq: 0,
+      touches: [],
+      prims: [{ t: "text", x: left, y: bottom + 8, lines: noteLines, size: 14, lineHeight: 20, weight: 500, anchor: "start", fill: { ink: "foreground" } }],
+    });
+    bottom += noteLines.length * 20 + 8;
   }
-  return { items, height };
+  return { items, height: bottom - y };
 }
 
 function barChart(spec: ChartSpec) {
   const max = axisMax(spec);
   const barH = 20;
   const gap = 6;
-  const rowH = spec.series.length * barH + (spec.series.length - 1) * gap;
+  const labelLines = spec.categories.map((c) => wrap(c.label, 20));
+  // A row is as tall as its bars, or as its category name needs if that is taller.
+  const rowH = Math.max(spec.series.length * barH + (spec.series.length - 1) * gap, ...labelLines.map((l) => l.length * 18 + 4));
   const badges = spec.categories.some((c) => c.badge);
   const labelW = 150;
   const plotX = 24 + labelW + 12;
@@ -96,14 +110,14 @@ function barChart(spec: ChartSpec) {
       touches: [],
       prims: [
         ...ticks(max).map((t) => grid(`M${plotX + (t / max) * plotW},${top - 8} L${plotX + (t / max) * plotW},${bottom + 8}`)),
-        ...ticks(max).map((t) => label(plotX + (t / max) * plotW, bottom + 28, fmt(t), { anchor: "middle" })),
+        ...ticks(max).map((t) => label(plotX + (t / max) * plotW, bottom + 28, formatNumber(t, spec.decimals), { anchor: "middle" })),
       ],
     },
   ];
   spec.categories.forEach((c, ci) => {
     const y = top + ci * (rowH + rowGap);
     const prims: Primitive[] = [];
-    const lines = wrap(c.label, 20);
+    const lines = labelLines[ci];
     prims.push({ t: "text", x: 24, y: y + rowH / 2 - ((lines.length - 1) * 18) / 2, lines, size: 15, lineHeight: 18, weight: 500, anchor: "start", fill: { ink: "foreground" } });
     if (spec.series.every((s) => s.values[ci] === null)) {
       prims.push(
@@ -114,11 +128,11 @@ function barChart(spec: ChartSpec) {
       spec.series.forEach((s, si) => {
         const v = s.values[ci];
         if (v === null) return;
-        const by = y + si * (barH + gap);
+        const by = y + (rowH - (spec.series.length * barH + (spec.series.length - 1) * gap)) / 2 + si * (barH + gap);
         const w = Math.max((v / max) * plotW, 2);
         prims.push(
           { t: "rect", x: plotX, y: by, w, h: barH, rx: 3, fill: { ink: SERIES[si].ink, opacity: SERIES[si].fillOpacity } },
-          label(plotX + w + 8, by + barH / 2 + 4.5, formatValue(v, spec.unit, spec.notMeasuredText), { size: 13, ink: "foreground", weight: 500 })
+          label(plotX + w + 8, by + barH / 2 + 4.5, formatValue(v, spec.unit, spec.notMeasuredText, spec.decimals), { size: 13, ink: "foreground", weight: 500 })
         );
       });
     }
@@ -155,7 +169,7 @@ function axes(spec: ChartSpec, g: ReturnType<typeof plotGeometry>): SceneItem {
     touches: [],
     prims: [
       ...ticks(g.max).map((t) => grid(`M${g.x0},${g.y(t)} L${g.x0 + g.plotW},${g.y(t)}`)),
-      ...ticks(g.max).map((t) => label(g.x0 - 10, g.y(t) + 4.5, fmt(t), { anchor: "end" })),
+      ...ticks(g.max).map((t) => label(g.x0 - 10, g.y(t) + 4.5, formatNumber(t, spec.decimals), { anchor: "end" })),
       ...spec.categories.map((c, i) => ({ t: "text" as const, x: g.cx(i), y: g.bottom + 26, lines: wrap(c.label, Math.max(8, Math.floor(g.plotW / g.n / 8.5))), size: 14, lineHeight: 17, weight: 500 as const, anchor: "middle" as const, fill: { ink: "muted" as const } })),
     ],
   };
@@ -178,7 +192,7 @@ function columnChart(spec: ChartSpec) {
       const h = Math.max((v / g.max) * g.plotH, 2);
       prims.push(
         { t: "rect", x: start + si * bw, y: g.bottom - h, w: bw - 3, h, rx: 3, fill: { ink: SERIES[si].ink, opacity: SERIES[si].fillOpacity } },
-        { t: "text", x: start + si * bw + (bw - 3) / 2, y: g.bottom - h - 10, lines: [fmt(v)], size: 13, lineHeight: 16, weight: 500, anchor: "middle", fill: { ink: "foreground" } }
+        { t: "text", x: start + si * bw + (bw - 3) / 2, y: g.bottom - h - 10, lines: [formatNumber(v, spec.decimals)], size: 13, lineHeight: 16, weight: 500, anchor: "middle", fill: { ink: "foreground" } }
       );
     });
     items.push({ kind: "node", ref: `c${ci}`, seq: ci, touches: [`c${ci}`], prims });
@@ -228,7 +242,7 @@ export function chartToScene(input: ChartSpecInput): Scene {
   const basis = spec.basis === "illustrative" ? "illustrative values" : `measured, ${spec.source}`;
   const equivalent = spec.categories.map((c, ci) => ({
     text: c.label,
-    detail: spec.series.map((s) => `${s.label}: ${formatValue(s.values[ci], spec.unit, spec.notMeasuredText)}`).join("; ") + (c.badge ? `; ${c.badge.label}` : ""),
+    detail: spec.series.map((s) => `${s.label}: ${formatValue(s.values[ci], spec.unit, spec.notMeasuredText, spec.decimals)}`).join("; ") + (c.badge ? `; ${c.badge.label}` : ""),
   }));
   return {
     id: spec.id,

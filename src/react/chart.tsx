@@ -41,7 +41,7 @@ function DataTable({ spec }: { spec: ChartSpec }) {
           <tr key={c.label}>
             <th scope="row">{c.label}</th>
             {spec.series.map((s) => (
-              <td key={s.id}>{formatValue(s.values[ci], spec.unit, spec.notMeasuredText)}</td>
+              <td key={s.id}>{formatValue(s.values[ci], spec.unit, spec.notMeasuredText, spec.decimals)}</td>
             ))}
             {spec.categories.some((x) => x.badge) ? <td>{c.badge?.label ?? ""}</td> : null}
           </tr>

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { MOTIONS } from "./scene.js";
 import { ICON_NAMES } from "./icons.js";
 import { NODE_SHAPES, SHAPE_TEXT, type NodeShape } from "./shapes.js";
+import { wrap } from "./text.js";
 
 /**
  * Diagram class: a spec in, a laid-out graph out.
@@ -341,13 +342,16 @@ export function lineBudget(node: Pick<DiagramNode, "role" | "shape">, width: num
   };
 }
 
-/** Height a node needs for its text at its own width. */
-function heightNeeded(n: Sized): number {
-  const width = GEOMETRY.nodeW * SIZE_SCALE[n.size].w;
+/** Height a node needs for its text at a given width, from the lines it will actually wrap to. */
+export function textHeightAt(n: Pick<DiagramNode, "role" | "shape" | "icon" | "label" | "sublabel">, width: number): number {
   const budget = lineBudget(n, width);
-  const label = Math.ceil(n.label.length / budget.label) * LABEL_LINE;
-  const sub = n.sublabel ? Math.ceil(n.sublabel.length / budget.sub) * SUBLABEL_LINE + 3 : 0;
+  const label = wrap(n.label, budget.label).length * LABEL_LINE;
+  const sub = n.sublabel ? wrap(n.sublabel, budget.sub).length * SUBLABEL_LINE + 3 : 0;
   return NODE_PADDING + label + sub + (n.icon ? ICON_ROOM : 0) + SHAPE_TEXT[shapeOf(n)].spare;
+}
+
+function heightNeeded(n: Sized): number {
+  return textHeightAt(n, GEOMETRY.nodeW * SIZE_SCALE[n.size].w);
 }
 
 /**

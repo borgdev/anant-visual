@@ -4,7 +4,7 @@ import { NODE_SHAPES } from "../shapes.js";
 import { ICON_NAMES } from "../icons.js";
 import { edgeSceneItems } from "../diagram-scene.js";
 import type { SceneItem } from "../scene.js";
-import { MAX_WIDTH, boxItem, buildScene, curve, figureBase, parseFigure, slug, tooWide } from "./base.js";
+import { MAX_WIDTH, boxItem, boxNeeds, buildScene, curve, figureBase, parseFigure, slug, tooWide } from "./base.js";
 
 /**
  * Hierarchy and mind map: one recursive node type, two layouts.
@@ -132,15 +132,24 @@ export type TreeSpecInput = z.input<typeof treeSpecSchema>;
 
 const T = { w: 150, h: 64, gapAlong: 52, gapAcross: 16, pad: 40 };
 
+/** Every node in a figure walked once, with its depth. */
+const nodesOf = (roots: TreeNodeInput[]) => {
+  const out: { node: TreeNodeInput; depth: number }[] = [];
+  roots.forEach((r) => walk(r, (node, depth) => out.push({ node, depth })));
+  return out;
+};
+
 export function treeToScene(input: TreeSpecInput) {
   const spec = parseFigure(treeSpecSchema, input, "tree");
   const ttb = spec.direction === "ttb";
+  // One height for every box, tall enough for the one with the most words.
+  const boxH = Math.max(T.h, ...nodesOf([spec.root]).map(({ node }) => boxNeeds(node, T.w)));
   const { placed, alongExtent, acrossExtent } = layoutForest(
     [spec.root],
-    () => ({ along: ttb ? T.h : T.w, across: ttb ? T.w : T.h }),
+    () => ({ along: ttb ? boxH : T.w, across: ttb ? T.w : boxH }),
     { along: T.gapAlong, across: T.gapAcross },
     () => T.w,
-    () => T.h
+    () => boxH
   );
   const width = (ttb ? acrossExtent : alongExtent) + 2 * T.pad;
   const height = (ttb ? alongExtent : acrossExtent) + 2 * T.pad;
@@ -177,8 +186,8 @@ export function treeToScene(input: TreeSpecInput) {
     if (!p.parent) continue;
     const a = at.get(p.parent.id)!;
     const b = at.get(p.node.id)!;
-    const from = ttb ? { x: a.x + T.w / 2, y: a.y + T.h } : { x: a.x + T.w, y: a.y + T.h / 2 };
-    const to = ttb ? { x: b.x + T.w / 2, y: b.y } : { x: b.x, y: b.y + T.h / 2 };
+    const from = ttb ? { x: a.x + T.w / 2, y: a.y + boxH } : { x: a.x + T.w, y: a.y + boxH / 2 };
+    const to = ttb ? { x: b.x + T.w / 2, y: b.y } : { x: b.x, y: b.y + boxH / 2 };
     const { path, mid } = curve(from, to, ttb ? "y" : "x");
     items.push(...edgeSceneItems({ from: p.parent.id, to: p.node.id, path, mid, style: "solid", arrow: "none" }, `${p.parent.id}>${p.node.id}`, p.depth - 0.5));
   }
@@ -221,23 +230,29 @@ export function mindmapToScene(input: MindmapSpecInput) {
     (run < total / 2 && right.length < spec.branches.length - 1 ? right : left).push(b);
     run += leaves(b);
   }
-  const size = (d: number) => M.sizes[Math.min(d, M.sizes.length - 1)];
+  // Each level is as tall as its fullest box needs, never shorter than its default.
+  const levels = M.sizes.map((base, d) => {
+    const here = nodesOf(spec.branches).filter((n) => Math.min(n.depth, M.sizes.length - 1) === d);
+    return { w: base.w, h: Math.max(base.h, ...here.map(({ node }) => boxNeeds(node, base.w))) };
+  });
+  const centerH = Math.max(M.center.h, boxNeeds({ ...spec.center, shape: "pill", role: "emphasis" }, M.center.w));
+  const size = (d: number) => levels[Math.min(d, levels.length - 1)];
   const lay = (forest: TreeNodeInput[]) =>
     layoutForest(forest, (d) => ({ along: size(d).w, across: size(d).h }), { along: M.gapAlong, across: M.gapAcross }, (d) => size(d).w, (d) => size(d).h);
   const r = lay(right);
   const l = lay(left);
   const side = Math.max(r.alongExtent, l.alongExtent);
   const width = 2 * (side + M.gapAlong) + M.center.w + 2 * M.pad;
-  const height = Math.max(r.acrossExtent, l.acrossExtent, M.center.h) + 2 * M.pad;
+  const height = Math.max(r.acrossExtent, l.acrossExtent, centerH) + 2 * M.pad;
   if (width > MAX_WIDTH) tooWide("mind map", spec.id, width, "Use fewer levels, or split the map.");
   const cx = width / 2;
   const cy = height / 2;
   const toneOf = new Map<string, (typeof BRANCH_TONES)[number]>();
   spec.branches.forEach((b, i) => walk(b, (n) => toneOf.set(n.id, BRANCH_TONES[i % BRANCH_TONES.length])));
   const items: SceneItem[] = [
-    boxItem({ id: spec.center.id, label: spec.center.label, sublabel: spec.center.sublabel, icon: spec.center.icon, role: "emphasis", shape: "pill", x: cx - M.center.w / 2, y: cy - M.center.h / 2, w: M.center.w, h: M.center.h, seq: 0, touches: spec.branches.map((b) => b.id) }),
+    boxItem({ id: spec.center.id, label: spec.center.label, sublabel: spec.center.sublabel, icon: spec.center.icon, role: "emphasis", shape: "pill", x: cx - M.center.w / 2, y: cy - centerH / 2, w: M.center.w, h: centerH, seq: 0, touches: spec.branches.map((b) => b.id) }),
   ];
-  const at = new Map<string, { x: number; y: number; w: number; h: number }>([[spec.center.id, { x: cx - M.center.w / 2, y: cy - M.center.h / 2, w: M.center.w, h: M.center.h }]]);
+  const at = new Map<string, { x: number; y: number; w: number; h: number }>([[spec.center.id, { x: cx - M.center.w / 2, y: cy - centerH / 2, w: M.center.w, h: centerH }]]);
   const order: Placed[] = [];
   for (const [forest, dir] of [[r, 1], [l, -1]] as const) {
     for (const p of forest.placed) {

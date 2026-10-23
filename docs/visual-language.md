@@ -616,6 +616,7 @@ A functional diagram explains an exact architecture or process. §3 says it is n
 - *Edges* between neighbouring layers are `curved` (default) or `orthogonal` (straight runs, rounded bends). An edge that spans layers and would cross a node is routed around it. Each loop-back edge takes its own lane, so they never lie on one another. `arrow` puts the head at the end, the start, both or neither.
 - *Size.* A node is `sm`, `md` or `lg`; a layer is as deep as its biggest node and the rest are centred on it. Text wraps to the room the node's silhouette leaves, and every node is at least tall enough to hold its text.
 - *Limits.* Label 48 characters, sublabel 60, edge label 24, lane label 32. The `marketing` profile allows 25 nodes and a drawing up to 1400 units wide, because its type would otherwise render below about 10px: use `direction: "ttb"` or fewer steps in a row. The `technical` profile (§22) raises both.
+- *Words fit.* Layout counts the lines a label and a sublabel actually wrap to (a hyphenated name breaks after its hyphens; a word with no break is cut at the line's budget), and every box is at least tall enough for them. The other figure kinds size their boxes the same way, and a box that still cannot hold its words fails the build rather than clipping.
 - A node with no edges is allowed inside a group (a containment diagram). A node's `position` overrides auto-layout when needed.
 
 **Swimlanes.** `lanes` splits the figure into bands that run with the reading direction (rows when left to right, columns when top to bottom), each with a header strip carrying its label, which is uppercase and reads upward on a row. A lane is for who or what does a step, never for decoration. Once any lane exists every node must be in one; a lane grows to hold nodes stacked in the same layer and to fit its own label; it holds nested groups but a group cannot cross a lane border. The accessible list says `Lane: …` for each step.
@@ -671,11 +672,12 @@ Rules these add to the diagram's:
 
 **Rules enforced by the spec:**
 - `basis` is required: `illustrative` (a worked example) or `measured`. A measured chart must name its `source`. A figure that looked like measured output would be a claim the claims register does not allow. The drawing itself carries a chip saying which.
+- Numbers are shown as the number needs, never rounded to a misleading figure: up to two decimals with trailing zeros dropped (0.99 is 0.99, 48 is 48), one decimal above a thousand, or exactly `decimals` places when the spec fixes them.
 - A `null` value means not measured. It is drawn as absence, with the `notMeasuredText`, never as zero and never as a short bar; a line breaks at it.
 - A caption of at least 60 characters.
 - No negative bars or columns; no value above a fixed axis maximum (the bar would be clipped and misstate it).
 
-**Permitted.** Horizontal bars (`bar`), vertical bars (`column`), and lines (`line`), grouped, up to four series. The marks, axis, values, badges, legend, basis chip and note are all part of one drawing from the scene renderer, so a chart exports to SVG and PNG and animates (`reveal`, and `trace` for a line) like any other figure.
+**Permitted.** Horizontal bars (`bar`), vertical bars (`column`), and lines (`line`), grouped, up to four series. The marks, axis, values, badges, legend, basis chip and note are all part of one drawing from the scene renderer, so a chart exports to SVG and PNG and animates (`reveal`, and `trace` for a line) like any other figure. The basis chip, the note and the category names wrap to the width and grow the figure; none is clipped.
 
 **Forbidden.** Pie and donut, gauges, 3D, dual axes, truncated axes on bars, stacked bars that make a part look like a share of a whole, and **any rendering of coverage as a proportion of a whole** (the Coverage grammar already forbids it).
 

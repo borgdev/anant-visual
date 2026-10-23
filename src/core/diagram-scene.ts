@@ -1,6 +1,7 @@
 import { GEOMETRY, ICON_ROOM, lineBudget, shapeOf, type DiagramSpec, type Layout, type PlacedEdge, type PlacedNode } from "./diagram.js";
 import type { Ink } from "./color.js";
 import { SHAPE_TEXT, shapeGeometry, type NodeShape } from "./shapes.js";
+import { wrap } from "./text.js";
 import type { Primitive, Scene, SceneItem } from "./scene.js";
 import { SURFACE, STROKE } from "./tokens.js";
 
@@ -22,21 +23,7 @@ const EXTERNAL_DASH = "7 6";
 const ARROW_LENGTH = 12.8;
 const ARROW_HALF = 6.4;
 
-/** Greedy wrap on a character budget, the same estimate the layout sized the box with. */
-export function wrap(text: string, perLine: number): string[] {
-  const lines: string[] = [];
-  let line = "";
-  for (const word of text.split(/\s+/).filter(Boolean)) {
-    if (line && line.length + 1 + word.length > perLine) {
-      lines.push(line);
-      line = word;
-    } else {
-      line = line ? `${line} ${word}` : word;
-    }
-  }
-  if (line) lines.push(line);
-  return lines.length ? lines : [""];
-}
+export { wrap } from "./text.js";
 
 export const TONE_INK: Record<string, Ink | undefined> = {
   good: "good",

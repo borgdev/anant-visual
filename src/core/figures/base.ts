@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { ZodType } from "zod";
 import { MOTIONS, type Motion, type Scene, type SceneItem } from "../scene.js";
 import { nodeItem } from "../diagram-scene.js";
-import type { PlacedNode } from "../diagram.js";
+import { textHeightAt, type PlacedNode } from "../diagram.js";
 
 /**
  * What every figure kind shares: an id, a label, a caption that states the concept, and
@@ -52,8 +52,21 @@ export type BoxSpec = {
   touches?: string[];
 };
 
-/** A labelled box as a scene item, drawn exactly as a diagram node is. */
+/** The height a box needs to hold its words at its width: what a figure sizes its boxes from. */
+export function boxNeeds(b: Pick<BoxSpec, "label" | "sublabel" | "role" | "shape" | "icon">, width: number): number {
+  return Math.ceil(textHeightAt({ label: b.label, sublabel: b.sublabel, role: b.role ?? "step", shape: b.shape, icon: b.icon }, width));
+}
+
+/**
+ * A labelled box as a scene item, drawn exactly as a diagram node is. A box too small for its
+ * words fails the build, like every other limit, rather than letting the text run out of it:
+ * a figure sizes its boxes from `boxNeeds`, so this only fires on a case it did not foresee.
+ */
 export function boxItem(b: BoxSpec): SceneItem {
+  const need = boxNeeds(b, b.w);
+  if (need > b.h + 0.5) {
+    throw new Error(`"${b.label}" needs ${need} units of height for its words and its box has ${Math.round(b.h)}; shorten the label or the detail`);
+  }
   const node: PlacedNode = {
     id: b.id,
     label: b.label,

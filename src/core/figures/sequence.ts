@@ -5,7 +5,7 @@ import { ICON_NAMES } from "../icons.js";
 import { TONES } from "../diagram.js";
 import { STROKE } from "../tokens.js";
 import type { SceneItem } from "../scene.js";
-import { MAX_WIDTH, boxItem, buildScene, figureBase, parseFigure, slug, tooWide } from "./base.js";
+import { MAX_WIDTH, boxItem, boxNeeds, buildScene, figureBase, parseFigure, slug, tooWide } from "./base.js";
 
 /**
  * A sequence diagram: who talks to whom, in what order. Participants are columns with a
@@ -63,18 +63,19 @@ const Q = { col: 200, head: { w: 170, h: 64 }, top: 24, firstRow: 64, row: 54, p
 export function sequenceToScene(input: SequenceSpecInput) {
   const spec = parseFigure(sequenceSpecSchema, input, "sequence");
   const n = spec.participants.length;
+  const headH = Math.max(Q.head.h, ...spec.participants.map((p) => boxNeeds(p, Q.head.w)));
   const width = n * Q.col + 2 * Q.pad - (Q.col - Q.head.w);
   if (width > MAX_WIDTH) tooWide("sequence", spec.id, width, "Use fewer participants.");
-  const rowY = (k: number) => Q.top + Q.head.h + Q.firstRow + k * Q.row;
+  const rowY = (k: number) => Q.top + headH + Q.firstRow + k * Q.row;
   const height = rowY(spec.messages.length - 1) + Q.row + Q.pad;
   const cx = (id: string) => Q.pad + Q.head.w / 2 + spec.participants.findIndex((p) => p.id === id) * Q.col;
   const items: SceneItem[] = [];
 
   spec.participants.forEach((p, i) => {
     const x = cx(p.id);
-    const box = boxItem({ id: p.id, label: p.label, sublabel: p.sublabel, shape: p.shape, icon: p.icon, tone: p.tone, x: x - Q.head.w / 2, y: Q.top, w: Q.head.w, h: Q.head.h, seq: -1 + i * 0.01, touches: spec.messages.filter((m) => m.from === p.id || m.to === p.id).flatMap((m) => [m.from, m.to]) });
+    const box = boxItem({ id: p.id, label: p.label, sublabel: p.sublabel, shape: p.shape, icon: p.icon, tone: p.tone, x: x - Q.head.w / 2, y: Q.top, w: Q.head.w, h: headH, seq: -1 + i * 0.01, touches: spec.messages.filter((m) => m.from === p.id || m.to === p.id).flatMap((m) => [m.from, m.to]) });
     // The lifeline hangs from the box and belongs to it, so focusing a participant keeps it lit.
-    box.prims.unshift({ t: "shape", d: `M${x},${Q.top + Q.head.h} L${x},${height - Q.pad / 2}`, stroke: { ink: "border" }, strokeWidth: STROKE.primary, dash: "6 7" });
+    box.prims.unshift({ t: "shape", d: `M${x},${Q.top + headH} L${x},${height - Q.pad / 2}`, stroke: { ink: "border" }, strokeWidth: STROKE.primary, dash: "6 7" });
     items.push(box);
   });
 

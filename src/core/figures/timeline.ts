@@ -3,7 +3,7 @@ import { TONES } from "../diagram.js";
 import { edgeSceneItems } from "../diagram-scene.js";
 import { STROKE, SURFACE } from "../tokens.js";
 import type { SceneItem } from "../scene.js";
-import { MAX_WIDTH, boxItem, buildScene, figureBase, parseFigure, slug, tooWide } from "./base.js";
+import { MAX_WIDTH, boxItem, boxNeeds, buildScene, figureBase, parseFigure, slug, tooWide } from "./base.js";
 
 /**
  * A timeline: events in order along an axis, cards alternating either side. The spacing
@@ -56,9 +56,11 @@ export function timelineToScene(input: TimelineSpecInput) {
   const spec = parseFigure(timelineSpecSchema, input, "timeline");
   const ltr = spec.direction === "ltr";
   const n = spec.events.length;
+  // The room each side must hold is set by the tallest card; each card is then sized to its own words.
+  const card = { w: L.card.w, h: Math.max(L.card.h, ...spec.events.map((e) => boxNeeds({ label: e.label, sublabel: e.detail }, L.card.w))) };
   const extent = n * L.step;
   // The axis runs through the middle; each event's card is on one side, alternating.
-  const crossHalf = L.stem + (ltr ? L.card.h : L.card.w) + 28;
+  const crossHalf = L.stem + (ltr ? card.h : card.w) + 28;
   const phaseRows = spec.phases.length;
   const width = ltr ? extent + 2 * L.pad : 2 * crossHalf + 2 * L.pad;
   const phaseSpace = phaseRows ? phaseRows * (L.phaseH + L.phaseGap) + 16 : 0;
@@ -81,8 +83,9 @@ export function timelineToScene(input: TimelineSpecInput) {
   spec.events.forEach((e, i) => {
     const side = i % 2 === 0 ? -1 : 1; // -1: above (or left), 1: below (or right)
     const d = P(at(i), axis);
-    const cardW = L.card.w;
-    const cardH = L.card.h;
+    const cardW = card.w;
+    // Each card is as tall as its own words need, so a short one is not stretched to match a long one.
+    const cardH = Math.max(L.card.h, boxNeeds({ label: e.label, sublabel: e.detail }, card.w));
     const from = P(at(i), axis + side * 8);
     const to = P(at(i), axis + side * L.stem);
     const ink = e.tone ? TONE_OF[e.tone] : "primary";

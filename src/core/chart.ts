@@ -37,6 +37,11 @@ export const chartSpecSchema = z
     source: z.string().optional(),
     /** Unit of the values, e.g. "ms" or "% of bar". Part of the text equivalent. */
     unit: z.string().optional(),
+    /**
+     * Decimal places shown on values and the axis. Omit it to show what the number needs: up to two
+     * decimals, trailing zeros dropped (0.99 stays 0.99, 48 stays 48), one above a thousand.
+     */
+    decimals: z.number().int().min(0).max(4).optional(),
     /** Fixed axis maximum. Omit to use a rounded maximum of the data. */
     max: z.number().positive().optional(),
     categories: z
@@ -52,7 +57,7 @@ export const chartSpecSchema = z
       .array(
         z.object({
           id: z.string().min(1),
-          label: z.string().min(1),
+          label: z.string().min(1).max(40, "a series label is at most 40 characters; it must fit the legend"),
           /** `null` means not measured. It is drawn as absence, never as zero. */
           values: z.array(z.number().nullable()),
         })
@@ -115,8 +120,19 @@ export function ticks(max: number, count = 4): number[] {
   return Array.from({ length: count + 1 }, (_, i) => (max / count) * i);
 }
 
-export function formatValue(value: number | null, unit: string | undefined, none: string): string {
+/**
+ * A number as text, without misstating it. With `decimals` it is that many places; without,
+ * it is rounded to two (one from a thousand up) and trailing zeros are dropped, so 0.99 stays
+ * 0.99 and 48 stays 48. Rounding to one place would show 0.99 as "1.0".
+ */
+export function formatNumber(value: number, decimals?: number): string {
+  if (decimals !== undefined) return value.toFixed(decimals);
+  const places = Math.abs(value) >= 1000 ? 1 : 2;
+  return String(Number(value.toFixed(places)));
+}
+
+export function formatValue(value: number | null, unit: string | undefined, none: string, decimals?: number): string {
   if (value === null) return none;
-  const text = Number.isInteger(value) ? String(value) : value.toFixed(1);
+  const text = formatNumber(value, decimals);
   return unit ? `${text} ${unit}` : text;
 }

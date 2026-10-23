@@ -6,7 +6,7 @@
     "start": "next start -p 4173"
   },
   "dependencies": {
-    "@anant/visual": "file:../../anant-visual-0.1.0.tgz",
+    "@anant/visual": "file:../../anant-visual-0.2.1.tgz",
     "next": "16.4.2",
     "react": "19.2.8",
     "react-dom": "19.2.8"

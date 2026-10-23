@@ -1,6 +1,6 @@
 {
   "name": "@anant/visual",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "The Anant visual system: tokens, a diagram engine, a chart engine and the figure shell, shared by every Anant website.",
   "type": "module",
   "license": "UNLICENSED",
