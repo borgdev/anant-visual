@@ -41,7 +41,7 @@ The drawing reads your site's colour variables directly (`var(--primary)`, `--fo
 ### How to upgrade
 
 ```bash
-npm install "github:borgdev/anant-visual#v0.2.0"     # once the tag exists; see the note below
+npm install "github:borgdev/anant-visual#v0.2.0"
 git apply node_modules/@anant/visual/docs/patches/functional-figures-0.2.0.patch
 npm run build
 npx playwright test          # the whole suite
@@ -59,10 +59,10 @@ The other assertions (drawing hidden from assistive technology, a generated list
 
 Then look at your densest signature figure at phone width. Nothing is expected to change, because the signature shell is the same; the check is cheap.
 
-**The `v0.2.0` tag does not exist yet.** GitHub has only `v0.1.0`; 0.2.0 is on the `avant-grade` branch, and `CHANGELOG.md` says "not yet tagged". Until the branch is merged and tagged, `#v0.2.0` fails. To try it now, install a commit of that branch instead, which is checked to work (the repository does not commit `dist/`, so npm runs the `prepare` build on install, and the build, the `anant-visual` command and the `core` and `node` entry points all resolve from a git install):
+The repository does not commit `dist/`, so npm builds it on install through the `prepare` script (checked: the build, the `anant-visual` command and the `core` and `node` entry points all resolve from a git install). To try an unreleased change, install a commit of its branch:
 
 ```bash
-npm install "github:borgdev/anant-visual#<commit sha on avant-grade>"
+npm install "github:borgdev/anant-visual#<commit sha>"
 ```
 
 A commit sha pins exactly; a branch name (`#avant-grade`) moves with every push, so use it only to look, never in a lockfile you ship. Or install a packed tarball: `npm pack` in the library, then `npm install --no-save <path to the .tgz>` here. Do not use `file:../anant-visual`: it is a symlink and Turbopack will not follow it.

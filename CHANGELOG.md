@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0 (branch `avant-grade`, not yet tagged)
+## 0.2.0
 
 **Breaking for a site's tests, not for its pages.** `FlowDiagram` and `Chart` are now one SVG with live `<text>` and one scoped `<style>`, where 0.1.0 drew HTML boxes over an SVG. A test that asserts the old markup (no `<text>`, no `<style>`, a `div.absolute.flex` box) fails. `docs/patches/functional-figures-0.2.0.patch` updates AnantVerify's `functional-figures.spec.ts`; the same three changes apply to any site's copy. `SignatureFigure`, the tokens and `theme.css` are unchanged.
 
