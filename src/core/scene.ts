@@ -41,10 +41,12 @@ export type Primitive =
       anchor: "start" | "middle";
       fill: Paint;
       tracking?: number;
+      /** Degrees about (x, y); a lane header on a row reads upward. */
+      rotate?: number;
     };
 
 /** What an item is, which decides how it is animated and how it responds to the pointer. */
-export type ItemKind = "region" | "node" | "edge" | "edge-label";
+export type ItemKind = "lane" | "region" | "node" | "edge" | "edge-label";
 
 export type SceneItem = {
   kind: ItemKind;

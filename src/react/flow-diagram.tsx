@@ -68,6 +68,7 @@ export function FlowDiagram({ spec: input }: { spec: DiagramSpecInput }) {
         {equivalent.map((item) => (
           <li key={item.id} className="rounded-xl border bg-background px-4 py-3 text-sm">
             <span className="font-semibold">{item.text}</span>
+            {item.lane ? <span className="block text-muted-foreground">Lane: {item.lane}</span> : null}
             {item.group ? <span className="block text-muted-foreground">In: {item.group}</span> : null}
             {item.leadsTo.length ? (
               <span className="block text-muted-foreground">Leads to: {item.leadsTo.join("; ")}</span>

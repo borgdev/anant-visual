@@ -52,6 +52,26 @@ const samples = [
     },
   },
   {
+    title: "Swimlanes",
+    note: "who does each step; reveal + trace",
+    spec: {
+      id: "order", label: "Order to cash", caption: CAPTION, motion: ["reveal", "trace"],
+      nodes: [
+        { id: "place", label: "Place order", lane: "customer" },
+        { id: "check", label: "Check stock", lane: "sales" },
+        { id: "review", label: "Credit review", lane: "sales", role: "emphasis" },
+        { id: "pack", label: "Pack", lane: "warehouse" },
+        { id: "pay", label: "Pay", lane: "customer" },
+        { id: "ship", label: "Ship", lane: "warehouse", role: "terminal", tone: "good" },
+      ],
+      edges: [
+        { from: "place", to: "check" }, { from: "place", to: "review" }, { from: "check", to: "pack" },
+        { from: "review", to: "pack", label: "approved" }, { from: "pack", to: "pay" }, { from: "pay", to: "ship" },
+      ],
+      lanes: [{ id: "customer", label: "Customer" }, { id: "sales", label: "Sales" }, { id: "warehouse", label: "Warehouse" }],
+    },
+  },
+  {
     title: "Top to bottom",
     note: "reveal only",
     spec: {

@@ -137,6 +137,32 @@ export function diagramToScene(spec: DiagramSpec, layout: Layout, description: s
   const layerOf = new Map(layout.nodes.map((n) => [n.id, n.layer]));
 
   const items: SceneItem[] = [];
+  for (const lane of layout.lanes) {
+    const head = lane.head;
+    items.push({
+      kind: "lane",
+      ref: lane.id,
+      seq: -2,
+      touches: [],
+      prims: [
+        { t: "rect", x: lane.x, y: lane.y, w: lane.w, h: lane.h, rx: 14, fill: { ink: "muted", opacity: 0.05 }, stroke: { ink: "border" }, strokeWidth: STROKE.hairline },
+        { t: "rect", x: head.x, y: head.y, w: head.w, h: head.h, rx: 14, fill: { ink: "muted", opacity: 0.12 } },
+        {
+          t: "text",
+          x: head.x + head.w / 2,
+          y: head.y + head.h / 2,
+          lines: [lane.label.toUpperCase()],
+          size: 13,
+          lineHeight: 16,
+          weight: 600,
+          anchor: "middle",
+          fill: { ink: "muted" },
+          tracking: 0.65,
+          rotate: lane.vertical ? undefined : -90,
+        },
+      ],
+    });
+  }
   for (const g of layout.groups) {
     const perLine = Math.max(1, Math.floor((g.w - 28) / GEOMETRY.groupLabelChar));
     items.push({

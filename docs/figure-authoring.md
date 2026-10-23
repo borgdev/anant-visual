@@ -50,6 +50,7 @@ A signature figure and a diagram must not sit in the same band of a page.
 | `nodes[].tone` | `good`, `watch`, `warn`, `bad`, `primary`, `muted`. A status, never decoration |
 | `nodes[].group` | Draws a labelled region round the members. Members must sit next to each other, or the build fails and names the node in the way |
 | `edges[].style` | `solid` flow, `dashed` optional or asynchronous, `emphasis` the one path the figure is about |
+| `lanes`, `nodes[].lane` | Swimlanes: one band per actor, system or tier, drawn in the order listed. Once any lane exists every node needs one. Flow still reads along the layers; the lane says who does the step. A group sits inside a single lane |
 | `direction` | `ltr` (default) or `ttb`. Use `ttb` for more than about five steps, or for a loop you want to read down the page |
 | A node with no edges | Allowed inside a group, for "what sits where" diagrams (see `topologies`). Place the nodes with `position`, and the text equivalent will say which group each is in |
 | `position` | Escape hatch: pin a node to a layer and row when auto-layout gets it wrong |

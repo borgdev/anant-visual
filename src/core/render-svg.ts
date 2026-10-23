@@ -36,7 +36,7 @@ export const TIMING = {
   pulse: 1400,
 } as const;
 
-const KIND_ORDER = { region: 0, edge: 1, node: 2, "edge-label": 3 } as const;
+const KIND_ORDER = { lane: 0, region: 1, edge: 2, node: 3, "edge-label": 4 } as const;
 
 const n = (v: number) => String(Math.round(v * 100) / 100);
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -84,10 +84,11 @@ function primitive(ctx: Ctx, p: Primitive): string {
     case "text": {
       const fill = ctx.standalone ? `fill="${color(ctx, p.fill.ink)}"` : `style="fill:${color(ctx, p.fill.ink)}"`;
       const track = p.tracking ? ` letter-spacing="${n(p.tracking)}"` : "";
+      const turn = p.rotate ? ` transform="rotate(${n(p.rotate)} ${n(p.x)} ${n(p.y)})"` : "";
       return p.lines
         .map(
           (line, i) =>
-            `<text x="${n(p.x)}" y="${n(p.y + i * p.lineHeight + p.size * 0.35)}" text-anchor="${p.anchor}" font-size="${n(p.size)}" font-weight="${p.weight}"${track} ${fill}>${esc(line)}</text>`
+            `<text x="${n(p.x)}" y="${n(p.y + i * p.lineHeight + p.size * 0.35)}" text-anchor="${p.anchor}" font-size="${n(p.size)}" font-weight="${p.weight}"${track}${turn} ${fill}>${esc(line)}</text>`
         )
         .join("");
     }
@@ -110,7 +111,7 @@ function css(scope: string, scene: Scene, ctx: Ctx, loop: boolean): string {
     // that never runs the script (or a reader who declined motion) shows the whole drawing.
     if (!ctx.standalone) m.push(`${S}[data-armed]:not([data-play]) .m{opacity:0}`);
     if (reveal) {
-      m.push(`${play} .node.m,${play} .region.m,${play} .edge-label.m{animation:av-reveal ${TIMING.reveal}ms var(--ease-standard,ease-out) var(--d) backwards}`);
+      m.push(`${play} .node.m,${play} .lane.m,${play} .region.m,${play} .edge-label.m{animation:av-reveal ${TIMING.reveal}ms var(--ease-standard,ease-out) var(--d) backwards}`);
       m.push(`@keyframes av-reveal{from{opacity:0;transform:translateY(8px)}}`);
     }
     if (trace) {

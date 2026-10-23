@@ -26,6 +26,7 @@ export const MAX_NODES = 25;
 export const MAX_LABEL = 48;
 export const MAX_SUBLABEL = 60;
 export const MAX_EDGE_LABEL = 24;
+export const MAX_LANE_LABEL = 32;
 
 export const NODE_ROLES = ["step", "emphasis", "external", "terminal"] as const;
 export const EDGE_STYLES = ["solid", "dashed", "emphasis"] as const;
@@ -59,6 +60,8 @@ export const diagramSpecSchema = z
           role: z.enum(NODE_ROLES).default("step"),
           tone: z.enum(TONES).optional(),
           group: idSchema.optional(),
+          /** The swimlane the node sits in. Required for every node once the spec has lanes. */
+          lane: idSchema.optional(),
           /** Hand placement in layer/row units, for the rare node auto-layout gets wrong. */
           position: z.object({ layer: z.number().int().min(0), row: z.number().int().min(0) }).optional(),
         })
@@ -73,6 +76,12 @@ export const diagramSpecSchema = z
         style: z.enum(EDGE_STYLES).default("solid"),
       })
     ),
+    /**
+     * Swimlanes: bands that run with the reading direction (rows left to right, columns top
+     * to bottom), one per actor, system or tier. Flow still reads along the layers; the lane
+     * says who or what does each step. Listed in the order they are drawn.
+     */
+    lanes: z.array(z.object({ id: idSchema, label: z.string().min(1).max(MAX_LANE_LABEL, `a lane label is at most ${MAX_LANE_LABEL} characters`) })).default([]),
     /** A group may sit inside another: set `parent`. A node's `group` is its innermost one. */
     groups: z.array(z.object({ id: idSchema, label: z.string().min(1), parent: idSchema.optional() })).default([]),
   })
@@ -105,6 +114,28 @@ export const diagramSpecSchema = z
     for (const node of spec.nodes) {
       if (node.group && !groups.has(node.group)) {
         ctx.addIssue({ code: "custom", message: `node "${node.id}" is in unknown group "${node.group}"` });
+      }
+    }
+    const lanes = new Set(spec.lanes.map((l) => l.id));
+    if (lanes.size !== spec.lanes.length) ctx.addIssue({ code: "custom", message: "duplicate lane id" });
+    for (const node of spec.nodes) {
+      if (node.lane && !lanes.has(node.lane)) ctx.addIssue({ code: "custom", message: `node "${node.id}" is in unknown lane "${node.lane}"` });
+      if (node.lane && !lanes.size) ctx.addIssue({ code: "custom", message: `node "${node.id}" names a lane, but the diagram has no lanes` });
+      if (!node.lane && lanes.size) ctx.addIssue({ code: "custom", message: `node "${node.id}" is in no lane, and every node must be in one when a diagram has lanes` });
+    }
+    // A group sits inside one lane: its box would otherwise cut across the lane borders.
+    const laneOfGroup = new Map<string, string>();
+    const groupParent = new Map(spec.groups.map((g) => [g.id, g.parent]));
+    for (const node of spec.nodes) {
+      // `climbed` stops a group cycle (reported above) from looping here.
+      const climbed = new Set<string>();
+      for (let g = node.group; g && !climbed.has(g); g = groupParent.get(g)) {
+        climbed.add(g);
+        const seen = laneOfGroup.get(g);
+        if (seen && node.lane && seen !== node.lane) {
+          ctx.addIssue({ code: "custom", message: `group "${g}" spans lanes "${seen}" and "${node.lane}"; a group sits inside one lane` });
+        }
+        if (node.lane && !seen) laneOfGroup.set(g, node.lane);
       }
     }
     // The text equivalent says how each node relates to the rest, by an edge or by the
@@ -140,6 +171,14 @@ export const GEOMETRY = {
   /** Wider than this and the text would render below about 10px at the page's widest figure. */
   maxWidth: 1400,
   backEdgeRoom: 44,
+  /** Swimlane header: a strip on the left (rows) or across the top (columns). */
+  laneHead: 44,
+  laneHeadTop: 38,
+  laneMargin: 10,
+  /** Room inside a lane, above and below its nodes. */
+  lanePad: 22,
+  /** Units one lane-label character takes, so a header is never shorter than its words. */
+  laneLabelChar: 8.4,
 } as const;
 
 export type PlacedNode = DiagramNode & { x: number; y: number; w: number; h: number; layer: number; row: number };
@@ -151,12 +190,26 @@ export type PlacedEdge = DiagramEdge & {
   back: boolean;
 };
 export type PlacedGroup = { id: string; label: string; parent?: string; depth: number; x: number; y: number; w: number; h: number };
+export type PlacedLane = {
+  id: string;
+  label: string;
+  /** The whole band, including its header. */
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  /** The header strip, which holds the label. */
+  head: { x: number; y: number; w: number; h: number };
+  /** True for columns (top to bottom), whose header is across the top and reads horizontally. */
+  vertical: boolean;
+};
 export type Layout = {
   width: number;
   height: number;
   nodes: PlacedNode[];
   edges: PlacedEdge[];
   groups: PlacedGroup[];
+  lanes: PlacedLane[];
 };
 
 export function parseDiagram(input: DiagramSpecInput): DiagramSpec {
@@ -263,6 +316,11 @@ export function layoutDiagram(spec: DiagramSpec): Layout {
   };
   const chains = new Map(spec.nodes.map((n) => [n.id, chainOf(n.group)]));
   const maxDepth = Math.max(0, ...[...chains.values()].map((c) => c.length));
+  const laneIndex = new Map(spec.lanes.map((l, i) => [l.id, i]));
+  const laneOf = new Map(spec.nodes.map((n) => [n.id, n.lane ?? ""]));
+  const laneRank = (id: string) => laneIndex.get(laneOf.get(id)!) ?? 0;
+  // Ordering keys: the lane first, then the groups, so a lane's nodes stay together too.
+  const orderKeys = new Map(spec.nodes.map((n) => [n.id, [...(n.lane ? [`lane:${n.lane}`] : []), ...chains.get(n.id)!]]));
   // Puts the members of every group, at every depth, next to each other, keeping the order
   // the sweeps chose for the blocks themselves. Without it a sweep can split a group.
   const regroup = (layer: string[]) => {
@@ -270,11 +328,11 @@ export function layoutDiagram(spec: DiagramSpec): Layout {
       const out: string[] = [];
       const seen = new Set<string>();
       for (const id of ids) {
-        const g = chains.get(id)![depth];
+        const g = orderKeys.get(id)![depth];
         if (g === undefined) out.push(id);
         else if (!seen.has(g)) {
           seen.add(g);
-          out.push(...place(ids.filter((x) => chains.get(x)![depth] === g), depth + 1));
+          out.push(...place(ids.filter((x) => orderKeys.get(x)![depth] === g), depth + 1));
         }
       }
       return out;
@@ -291,7 +349,7 @@ export function layoutDiagram(spec: DiagramSpec): Layout {
     .sort((a, b) => {
       const ga = a.group ? groupRank.get(a.group)! : -1;
       const gb = b.group ? groupRank.get(b.group)! : -1;
-      return ga - gb || declared.get(a.id)! - declared.get(b.id)!;
+      return laneRank(a.id) - laneRank(b.id) || ga - gb || declared.get(a.id)! - declared.get(b.id)!;
     })
     .forEach((n) => layers[layerOf.get(n.id)!].push(n.id));
 
@@ -307,7 +365,7 @@ export function layoutDiagram(spec: DiagramSpec): Layout {
         return [id, ns.length ? ns.reduce((a, b) => a + b, 0) / ns.length : indexIn(layer, id)] as const;
       })
     );
-    layer.sort((a, b) => score.get(a)! - score.get(b)! || declared.get(a)! - declared.get(b)!);
+    layer.sort((a, b) => laneRank(a) - laneRank(b) || score.get(a)! - score.get(b)! || declared.get(a)! - declared.get(b)!);
     regroup(layer);
   };
   for (let pass = 0; pass < 4; pass++) {
@@ -342,7 +400,8 @@ export function layoutDiagram(spec: DiagramSpec): Layout {
   // Room a group's border takes beyond the canvas margin, so the outermost box stays inside it.
   const side = Math.max(0, maxDepth * GEOMETRY.groupPad - 24);
   const alongPad = pad + side;
-  const alongStart = layers.map((_, li) => alongPad + li * alongSize + gaps.slice(0, li).reduce((a, b) => a + b, 0));
+  const headRoom = spec.lanes.length ? (ttb ? GEOMETRY.laneHeadTop : GEOMETRY.laneHead) + GEOMETRY.laneMargin : 0;
+  const alongStart = layers.map((_, li) => alongPad + headRoom + li * alongSize + gaps.slice(0, li).reduce((a, b) => a + b, 0));
 
   // A group label that will wrap to two lines needs room above, so reserve it up front.
   const inGroup = (id: string, gid: string) => chains.get(id)!.includes(gid);
@@ -359,7 +418,8 @@ export function layoutDiagram(spec: DiagramSpec): Layout {
   const labelOf = (gid: string) => labelHeight.get(gid) ?? GEOMETRY.groupLabel;
   // Everything a node's groups need above it, so the topmost box does not leave the canvas.
   const needAbove = Math.max(0, ...spec.nodes.map((n) => chains.get(n.id)!.reduce((sum, g) => sum + GEOMETRY.groupPad + labelOf(g), 0)));
-  const top = Math.max(0, needAbove - pad);
+  // With lanes each lane reserves its own headroom, so nothing is shifted.
+  const top = spec.lanes.length ? 0 : Math.max(0, needAbove - pad);
 
   // The gap between neighbours in a layer grows where a group's border runs between them.
   const crossGap = (p: string, q: string) => {
@@ -371,42 +431,67 @@ export function layoutDiagram(spec: DiagramSpec): Layout {
     const entering = b.slice(k).reduce((sum, g) => sum + GEOMETRY.groupPad + (ttb ? 0 : labelOf(g)), 0);
     return rowGap + Math.max(0, leaving + entering - rowGap);
   };
-  const offsets = layers.map((layer) => {
+  // Lanes stack on the across axis. Without lanes there is one unnamed lane and nothing is added.
+  const hasLanes = spec.lanes.length > 0;
+  const lanes = hasLanes ? spec.lanes : [{ id: "", label: "" }];
+  const inLane = (laneId: string) => layers.map((layer) => layer.filter((id) => laneOf.get(id) === laneId));
+  const extentOf = (ids: string[]) => {
     const pos: number[] = [];
     let cur = 0;
-    layer.forEach((id, i) => {
-      if (i > 0) cur += crossGap(layer[i - 1], id);
+    ids.forEach((id, i) => {
+      if (i > 0) cur += crossGap(ids[i - 1], id);
       pos.push(cur);
       cur += across;
     });
     return { pos, extent: cur };
+  };
+  const laneLayers = lanes.map((l) => inLane(l.id).map(extentOf));
+  // Content a lane must hold: its fullest layer, and at least as long as its own label.
+  const contentOf = lanes.map((l, li) =>
+    Math.max(...laneLayers[li].map((o) => o.extent), hasLanes ? l.label.length * GEOMETRY.laneLabelChar + 16 : 0)
+  );
+  const lanePadTop = hasLanes ? GEOMETRY.lanePad + needAbove : 0;
+  const lanePadBottom = hasLanes ? GEOMETRY.lanePad + maxDepth * GEOMETRY.groupPad : 0;
+  const acrossExtent = Math.max(...contentOf);
+  const crossOrigin = hasLanes ? GEOMETRY.laneMargin : alongPad;
+  const laneTop: number[] = [];
+  let crossCursor = crossOrigin;
+  lanes.forEach((_, li) => {
+    laneTop.push(crossCursor);
+    crossCursor += (hasLanes ? lanePadTop + contentOf[li] + lanePadBottom : acrossExtent);
   });
-  const acrossExtent = Math.max(...offsets.map((o) => o.extent));
+  const crossEnd = crossCursor;
   const placed = new Map<string, PlacedNode>();
   const byId = new Map(spec.nodes.map((n) => [n.id, n]));
-  layers.forEach((layer, li) => {
-    const offset = alongPad + (acrossExtent - offsets[li].extent) / 2;
-    layer.forEach((id, ri) => {
-      const along = alongStart[li];
-      const cross = offset + offsets[li].pos[ri];
-      placed.set(id, {
-        ...byId.get(id)!,
-        x: ttb ? cross : along,
-        y: (ttb ? along : cross) + top,
-        w: W,
-        h: H,
-        layer: li,
-        row: ri,
+  lanes.forEach((_, li) => {
+    layers.forEach((layer, layerIndex) => {
+      const { pos, extent } = laneLayers[li][layerIndex];
+      const ids = inLane(lanes[li].id)[layerIndex];
+      const base = laneTop[li] + (hasLanes ? lanePadTop : 0) + ((hasLanes ? contentOf[li] : acrossExtent) - extent) / 2;
+      ids.forEach((id, ri) => {
+        const cross = base + pos[ri];
+        placed.set(id, {
+          ...byId.get(id)!,
+          x: ttb ? cross : alongStart[layerIndex],
+          y: (ttb ? alongStart[layerIndex] : cross) + top,
+          w: W,
+          h: H,
+          layer: layerIndex,
+          row: layer.indexOf(id),
+        });
       });
     });
   });
 
   const nodes = spec.nodes.map((n) => placed.get(n.id)!);
   const right = Math.max(...nodes.map((n) => n.x + n.w));
-  const bottom = Math.max(...nodes.map((n) => n.y + n.h));
+  const nodesBottom = Math.max(...nodes.map((n) => n.y + n.h));
+  // With lanes the drawing ends where the lanes end, which is past the lowest node.
+  const bottom = hasLanes && !ttb ? crossEnd : nodesBottom;
   const hasBack = back.size > 0;
-  const width = right + alongPad + (ttb && hasBack ? GEOMETRY.backEdgeRoom : 0);
-  const height = bottom + alongPad + (!ttb && hasBack ? GEOMETRY.backEdgeRoom : 0);
+  const endPad = hasLanes ? GEOMETRY.laneMargin + 18 : alongPad;
+  const width = (hasLanes && ttb ? crossEnd + GEOMETRY.laneMargin : right + endPad) + (ttb && hasBack ? GEOMETRY.backEdgeRoom : 0);
+  const height = (hasLanes && !ttb ? crossEnd + GEOMETRY.laneMargin : nodesBottom + endPad) + (!ttb && hasBack ? GEOMETRY.backEdgeRoom : 0);
   if (width > GEOMETRY.maxWidth) {
     throw new Error(
       `Invalid diagram "${spec.id}": it is ${Math.round(width)} units wide, and its text would render too small to read. ` +
@@ -436,7 +521,7 @@ export function layoutDiagram(spec: DiagramSpec): Layout {
         const by = b.y + b.h / 2;
         const ax = a.x + a.w;
         const bx = b.x + b.w;
-        const far = right + GEOMETRY.backEdgeRoom * 0.6;
+        const far = (hasLanes ? crossEnd : right) + GEOMETRY.backEdgeRoom * 0.6;
         path = `M${ax},${ay} C${far},${ay} ${far},${by} ${bx},${by}`;
         mid = { x: 0.75 * far + 0.125 * (ax + bx), y: (ay + by) / 2 };
       }
@@ -527,7 +612,18 @@ export function layoutDiagram(spec: DiagramSpec): Layout {
   }
   groups.sort((a, b) => a.depth - b.depth);
 
-  return { width, height, nodes, edges, groups };
+  // 7. Lane bands. They run the length of the drawing, with a header strip for the label.
+  const placedLanes: PlacedLane[] = hasLanes
+    ? spec.lanes.map((l, li) => {
+        const size = lanePadTop + contentOf[li] + lanePadBottom;
+        const m = GEOMETRY.laneMargin;
+        return ttb
+          ? { id: l.id, label: l.label, x: laneTop[li], y: m, w: size, h: height - 2 * m, vertical: true, head: { x: laneTop[li], y: m, w: size, h: GEOMETRY.laneHeadTop } }
+          : { id: l.id, label: l.label, x: m, y: laneTop[li], w: width - 2 * m, h: size, vertical: false, head: { x: m, y: laneTop[li], w: GEOMETRY.laneHead, h: size } };
+      })
+    : [];
+
+  return { width, height, nodes, edges, groups, lanes: placedLanes };
 }
 
 /**
@@ -537,8 +633,9 @@ export function layoutDiagram(spec: DiagramSpec): Layout {
 export function describeDiagram(
   spec: DiagramSpec,
   layout: Layout
-): { id: string; text: string; leadsTo: string[]; group?: string }[] {
+): { id: string; text: string; leadsTo: string[]; group?: string; lane?: string }[] {
   const label = new Map(spec.nodes.map((n) => [n.id, n.label]));
+  const laneLabel = new Map(spec.lanes.map((l) => [l.id, l.label]));
   const parentOf = new Map(spec.groups.map((g) => [g.id, g.parent]));
   const groupLabel = new Map(
     spec.groups.map((g) => {
@@ -558,6 +655,7 @@ export function describeDiagram(
         text: node.sublabel ? `${node.label}: ${node.sublabel}` : node.label,
         leadsTo,
         group: node.group ? groupLabel.get(node.group) : undefined,
+        lane: node.lane ? laneLabel.get(node.lane) : undefined,
       };
     });
 }
